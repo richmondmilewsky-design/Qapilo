@@ -114,7 +114,7 @@ class TestRegression:
         assert r.status_code == 200
         d = r.json()
         assert d["symbol"] == "AAPL"
-        assert d.get("source") in ("alphavantage", "simulated")
+        assert d.get("source") in ("finnhub", "simulated")
 
     def test_leaderboard(self, auth_headers):
         r = requests.get(f"{BASE_URL}/api/leaderboard", headers=auth_headers, timeout=20)

@@ -101,3 +101,62 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+user_problem_statement: "Duolingo-style stock learning app. Recent changes: (1) multi-language i18n (English/German/Spanish) across backend endpoints (lang query param) and all frontend screens; (2) migrated live stock data from Alpha Vantage to Finnhub API."
+
+backend:
+  - task: "Finnhub live stock quotes migration"
+    implemented: true
+    working: "NA"
+    file: "server.py, stocks.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Replaced Alpha Vantage av_quote with finnhub_quote (GET /quote, X-Finnhub-Token header, 45s TTL cache). /api/stocks now returns LIVE quotes for all symbols concurrently (source='finnhub'). /api/stocks/{symbol} returns live quote + deterministic history ending at live price. Finnhub free tier excludes candle data so history stays simulated. Verified via curl: AAPL price 321.66 source finnhub."
+
+  - task: "i18n localized backend endpoints (lang=en|de|es)"
+    implemented: true
+    working: "NA"
+    file: "server.py, content_i18n.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "All content endpoints accept lang param and return localized curriculum/lessons/stock explanations. Needs E2E verification that en/de/es all return correct localized content and no endpoint regressions."
+
+frontend:
+  - task: "i18n frontend (language switcher, localized UI across all screens)"
+    implemented: true
+    working: "NA"
+    file: "src/i18n/*, all app/ screens, components/LanguageButton.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "expo-localization auto-detect + manual LanguageButton in header. Hardcoded strings replaced with useI18n() keys across all screens. Needs E2E: verify switching languages updates UI + backend content, core flows (learn path, lesson quiz, stocks explorer, AI tutor, paywall) still work."
+
+metadata:
+  created_by: "main_agent"
+  version: "1.1"
+  test_sequence: 3
+  run_ui: true
+
+test_plan:
+  current_focus:
+    - "Finnhub live stock quotes migration"
+    - "i18n localized backend endpoints (lang=en|de|es)"
+    - "i18n frontend (language switcher, localized UI across all screens)"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+    - agent: "main"
+      message: "Two areas to verify. (1) NEW: Finnhub migration for stock data — test /api/stocks (list should have source='finnhub' with live prices) and /api/stocks/{symbol} (live quote + 30-pt history ending at live price). (2) PENDING E2E: app-wide i18n changes — verify lang=en/de/es on content endpoints and that frontend language switcher + all core flows (learn path, lesson player quizzes, stocks explorer + detail, AI tutor chat, paywall) work without regressions. Use test creds in /app/memory/test_credentials.md (demo@tradequest.app / demo123) or sign up a new user. Google OAuth and live PayPal approval cannot be automated (sandbox, keys present)."

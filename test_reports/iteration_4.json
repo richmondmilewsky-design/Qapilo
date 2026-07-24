@@ -1,0 +1,48 @@
+{
+  "summary": "TradeQuest iteration_4 — validated (1) Finnhub migration for live stocks and (2) app-wide i18n (EN/DE/ES) + regression. Backend: 17/17 pytest passed in /app/backend/tests/test_iteration_4.py — GET /api/stocks returns items with source='finnhub' and live prices (AAPL=$321.66 during test, MSFT $381.58, GOOGL $317.69, AMZN $233.66), GET /api/stocks/AAPL returns a 30-point history whose LAST value equals the live price (source='finnhub'), GET /api/curriculum?lang={en,de,es} returns localized unit titles (u1: 'Stock Market Basics' / 'Börsen-Grundlagen' / 'Fundamentos de la bolsa'), GET /api/stocks?lang=de|es returns localized explain text (verified 'iPhone'+German for AAPL DE; ES contains 'mundo/valiosas'), GET /api/lessons/l1?lang=de returns German title + cards while preserving answer indices, invalid lang falls back to EN, signup/login/JWT/auth-me/accept-terms/leaderboard/complete-lesson XP award/progress all pass, AI Tutor /api/tutor/status shows configured=true is_pro=true for trial user, /api/tutor/chat returns real Claude reply (>20 chars). Frontend (390x844): fresh signup routes to /agreement gate (checkbox + agree-continue-button both present + gate persistence works), then to (tabs). Language switcher via header LanguageButton (testID=language-button) is present on Learn+Explore+Auth, opens the language-picker modal listing EN/DE/ES; tapping lang-option-de instantly updates the full UI — verified Learn header 'DE' label, 'Tagesziel · 0/50 XP', unit titles 'Börsen-Grundlagen' / 'Wie Aktien funktionieren', lesson tile 'Was ist eine Aktie?', and bottom tab labels 'Lernen | Entdecken | KI-Tutor | Rangliste | Profil'. Explore Stocks screen: renders all stocks with live prices, tapping AAPL card opens detail with $321.66 header, red -4.23 (1.30%) change chip, 30-point 'Last 30 sessions' line chart whose endpoint matches the header price. AI Tutor: chat-input + chat-send-button work; assistant reply for 'Define ETF in one short sentence' rendered (176 chars, Claude-generated 'An **ETF (Exchange-Traded Fund)** is a basket of many different stocks…'), header shows 'Pro · Unlimited'. Console errors are limited to (a) clearbit.com logo domain resolution failures (cosmetic, some stock logos come back blank on the web preview) and (b) an initial 401 from /api/auth/me before login (expected). Deprecated warning re: TouchableWithoutFeedback still present on auth.tsx (carried over from iteration_2/3).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "app/(tabs)/explore.tsx + stock detail", "issue": "Clearbit logos frequently fail to resolve (ERR_NAME_NOT_RESOLVED on multiple hostnames) so several stock cards + the AAPL detail avatar render as an empty tile. Cosmetic but noticeable. Consider a local fallback or a onError→placeholder for the <Image>. Reference: /app/frontend/app/(tabs)/explore.tsx:152", "testID": "stock-card-AAPL", "priority": "LOW"},
+      {"component": "app/auth.tsx", "issue": "(Carried from iteration_2/3) FastAPI 422 array-of-objects error still renders as '[object Object]' in the auth-error Text. Reference: /app/frontend/app/auth.tsx:150", "testID": "auth-error", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "app/auth.tsx", "issue": "Console warning: 'TouchableWithoutFeedback is deprecated. Please use Pressable.' — not yet migrated. Reference: /app/frontend/app/auth.tsx"}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration_4.py",
+    "/app/test_reports/pytest/pytest_iteration_4.xml"
+  ],
+  "action_items": [
+    "(Optional) Add an onError fallback to the stock logo <Image> so clearbit domain-resolution failures render a neutral placeholder instead of a blank tile.",
+    "(Carried over) Map FastAPI 422 detail arrays to a human string in /app/frontend/app/auth.tsx before setting auth-error.",
+    "(Carried over) Replace TouchableWithoutFeedback with Pressable in /app/frontend/app/auth.tsx to silence the deprecation warning.",
+    "(Optional refactor) server.py is ~940 lines mixing auth/curriculum/stocks/tutor/paypal — consider splitting into routers."
+  ],
+  "critical_code_review_comments": [
+    "server.finnhub_quote correctly uses X-Finnhub-Token header and 45s in-memory TTL cache; on price<=0 or exception it falls back to fallback_quote (source='simulated') — safe.",
+    "stocks list uses asyncio.gather to fetch all 16 quotes concurrently; with 45s TTL and Finnhub free tier (60/min) this is well within limits.",
+    "stock_detail passes end_price=quote['price'] to fallback_history, and fallback_history explicitly sets series[-1] = round(target, 2) — verified in backend test that history[-1] == price for source='finnhub'.",
+    "content_i18n.norm_lang correctly strips locale region ('de-DE' → 'de') and falls back to 'en' for anything unsupported.",
+    "loc_lesson_full preserves the English answer index and only translates visible option text — matches the design note; DE l1 lesson passed the shape assertion in backend tests.",
+    "I18nContext.setLocale calls setApiLang(l) so all subsequent API calls carry the new lang query param — matches frontend API client integration.",
+    "LanguageButton is mounted on auth.tsx, (tabs)/index.tsx and (tabs)/explore.tsx — visible from every user-facing screen after (and before) login."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration_4.py (new)",
+    "/app/test_reports/iteration_4.json (new)",
+    "/app/test_reports/pytest/pytest_iteration_4.xml (new)"
+  ],
+  "success_rate": {
+    "backend": "100% (17/17 iteration_4)",
+    "frontend": "100% of exercisable flows: signup → agreement → Learn (EN & DE), language picker, Explore Stocks list w/ live Finnhub prices, AAPL detail chart, AI Tutor Claude round-trip"
+  },
+  "seed_data_creation": "Two ephemeral test users: TEST_it4_<hex>@tradequest.app (pytest), uit4_<ts>@tradequest.app + uit4b_<ts>@tradequest.app (playwright). No prod data touched.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Public URL is EXPO_PUBLIC_BACKEND_URL=https://stock-learn-24.preview.emergentagent.com. Auth screen defaults to 'Log In'; toggle to signup via [data-testid=toggle-auth-mode]. Signup testIDs: name-input (only in signup mode), email-input, password-input, auth-submit-button. Agreement gate: agree-checkbox, agree-continue-button, decline-button. Language switch: language-button in header → language-picker modal → lang-option-{en,de,es}. Stocks: stock-card-{SYMBOL}. Tutor: chat-input, chat-send-button, chat-msg-user, chat-msg-assistant. Finnhub free tier: 60 calls/min; if exhausted, individual quotes fall back to source='simulated' — the test tolerates this (skips history-vs-price assert when not finnhub).",
+  "rca_of_issue": "N/A — both new features (Finnhub migration + i18n) are working end-to-end; only minor pre-existing cosmetic issues remain."
+}

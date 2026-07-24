@@ -1,7 +1,9 @@
 """Curated stock universe with plain-English explanations.
 
-Live quotes come from Alpha Vantage when ALPHA_VANTAGE_API_KEY is set; otherwise a
+Live quotes come from Finnhub when FINNHUB_API_KEY is set; otherwise a
 deterministic pseudo-live fallback is generated so the app is always functional.
+Note: Finnhub's free tier does not include candle/history data, so the price
+chart uses the deterministic fallback_history series.
 """
 import hashlib
 import math
@@ -67,8 +69,12 @@ def fallback_quote(symbol: str):
     }
 
 
-def fallback_history(symbol: str, points: int = 30):
-    """Generate a smooth pseudo-random price history ending near the current price."""
+def fallback_history(symbol: str, points: int = 30, end_price: float | None = None):
+    """Generate a smooth pseudo-random price history ending near the current price.
+
+    If end_price is provided (e.g. a live quote), the series is shifted so its
+    last point matches it, keeping the chart visually consistent with the header.
+    """
     s = STOCK_MAP[symbol]
     base = s["base"]
     series = []
@@ -78,6 +84,9 @@ def fallback_history(symbol: str, points: int = 30):
         wave = math.sin(i / 4.0) * base * 0.01
         val = max(base * 0.6, val + drift + wave)
         series.append(round(val, 2))
-    # nudge last point toward today's fallback price
-    series[-1] = fallback_quote(symbol)["price"]
+    target = end_price if end_price else fallback_quote(symbol)["price"]
+    # shift the whole series so it ends exactly at the target price
+    shift = target - series[-1]
+    series = [round(max(base * 0.4, v + shift), 2) for v in series]
+    series[-1] = round(target, 2)
     return series

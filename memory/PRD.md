@@ -46,5 +46,5 @@ Build a Duolingo-style app for learning Stocks — lessons, XP, streaks, basic s
 See `/app/memory/test_credentials.md` (demo@tradequest.app / demo123).
 
 ## Notes
-- Stock quotes/history are SIMULATED (deterministic) until an Alpha Vantage key is added.
+- Live stock quotes come from **Finnhub** (FINNHUB_API_KEY set; free tier 60 calls/min). Both the Stocks list and detail screens show live prices with a 45s TTL cache. Price charts use a deterministic simulated history since Finnhub's free tier excludes candle data. Falls back to simulated quotes if the key is unset/request fails.
 - Google OAuth cannot be automated in tests (Emergent-managed).

@@ -1,6 +1,7 @@
 import os
 import uuid
 import base64
+import asyncio
 import logging
 from pathlib import Path
 from datetime import datetime, timezone, timedelta, date
@@ -30,7 +31,7 @@ db = client[os.environ["DB_NAME"]]
 JWT_SECRET = os.environ.get("JWT_SECRET", "change-me-dev-secret")
 JWT_ALG = "HS256"
 JWT_EXPIRES_DAYS = 30
-ALPHA_KEY = os.environ.get("ALPHA_VANTAGE_API_KEY", "").strip()
+FINNHUB_KEY = os.environ.get("FINNHUB_API_KEY", "").strip()
 DAILY_GOAL_XP = 50
 
 # --- Monetization / AI config ---
@@ -538,32 +539,40 @@ async def leaderboard(user: dict = Depends(get_current_user)):
 
 
 # ----------------------------- Stocks -----------------------------
+# In-memory quote cache with a short TTL. Finnhub free tier allows 60 calls/min,
+# so we serve near-live quotes and refresh at most once per QUOTE_TTL seconds.
 _quote_cache: dict = {}
+QUOTE_TTL = 45  # seconds
 
 
-async def av_quote(symbol: str):
-    if not ALPHA_KEY:
+async def finnhub_quote(symbol: str):
+    """Fetch a live quote from Finnhub, falling back to a deterministic
+    simulated quote when no key is set or the request fails."""
+    if not FINNHUB_KEY:
         return fallback_quote(symbol)
-    cache_key = f"{symbol}-{today_str()}"
-    if cache_key in _quote_cache:
-        return _quote_cache[cache_key]
+    now = datetime.now(timezone.utc).timestamp()
+    cached = _quote_cache.get(symbol)
+    if cached and now - cached["_ts"] < QUOTE_TTL:
+        return cached["data"]
     try:
         async with httpx.AsyncClient(timeout=10) as hc:
-            r = await hc.get("https://www.alphavantage.co/query", params={
-                "function": "GLOBAL_QUOTE", "symbol": symbol, "apikey": ALPHA_KEY,
-            })
-        q = r.json().get("Global Quote", {})
-        price = float(q.get("05. price", 0) or 0)
+            r = await hc.get(
+                "https://finnhub.io/api/v1/quote",
+                params={"symbol": symbol},
+                headers={"X-Finnhub-Token": FINNHUB_KEY},
+            )
+        q = r.json()
+        price = float(q.get("c", 0) or 0)
         if price <= 0:
             raise ValueError("no price")
-        change = float(q.get("09. change", 0) or 0)
-        change_pct = float((q.get("10. change percent", "0") or "0").replace("%", ""))
+        change = float(q.get("d", 0) or 0)
+        change_pct = float(q.get("dp", 0) or 0)
         out = {"symbol": symbol, "price": round(price, 2), "change": round(change, 2),
-               "change_pct": round(change_pct, 2), "source": "alphavantage"}
-        _quote_cache[cache_key] = out
+               "change_pct": round(change_pct, 2), "source": "finnhub"}
+        _quote_cache[symbol] = {"_ts": now, "data": out}
         return out
     except Exception as e:
-        logger.warning(f"AV quote failed for {symbol}: {e}")
+        logger.warning(f"Finnhub quote failed for {symbol}: {e}")
         return fallback_quote(symbol)
 
 
@@ -577,12 +586,11 @@ async def list_stocks(category: Optional[str] = None, q: Optional[str] = None,
     if q:
         ql = q.lower()
         items = [s for s in items if ql in s["symbol"].lower() or ql in s["name"].lower()]
+    # Finnhub free tier = 60 calls/min, so we fetch live quotes for the whole list
+    # concurrently (with a short TTL cache) instead of the old simulated values.
+    quotes = await asyncio.gather(*[finnhub_quote(s["symbol"]) for s in items])
     out = []
-    for s in items:
-        # Use fast local quotes for the list to conserve the Alpha Vantage
-        # daily quota (free tier = 25 req/day). Live quotes are fetched on the
-        # single stock detail screen instead.
-        quote = fallback_quote(s["symbol"])
+    for s, quote in zip(items, quotes):
         out.append({
             "symbol": s["symbol"], "name": s["name"], "category": s["category"],
             "logo": f"https://logo.clearbit.com/{s['domain']}",
@@ -596,12 +604,12 @@ async def stock_detail(symbol: str, lang: str = "en", user: dict = Depends(get_c
     s = STOCK_MAP.get(symbol.upper())
     if not s:
         raise HTTPException(status_code=404, detail="Stock not found")
-    quote = await av_quote(s["symbol"])
+    quote = await finnhub_quote(s["symbol"])
     return {
         "symbol": s["symbol"], "name": s["name"], "category": s["category"],
         "logo": f"https://logo.clearbit.com/{s['domain']}",
         "explain": loc_stock_explain(s["symbol"], s["explain"], norm_lang(lang)),
-        "history": fallback_history(s["symbol"]),
+        "history": fallback_history(s["symbol"], end_price=quote["price"]),
         **quote,
     }
 
