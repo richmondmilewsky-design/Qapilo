@@ -14,6 +14,7 @@ import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import { useAuth } from "@/src/context/AuthContext";
 import { apiRequest } from "@/src/api/client";
+import { storage } from "@/src/utils/storage";
 import { colors, fonts, radius, spacing, LESSON_ICONS } from "@/src/theme/theme";
 import { Loading } from "@/src/components/ui";
 
@@ -38,6 +39,9 @@ export default function LearnScreen() {
   const [units, setUnits] = useState<Unit[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [nudgeDismissed, setNudgeDismissed] = useState(false);
+
+  const todayKey = new Date().toISOString().slice(0, 10);
 
   const load = useCallback(async () => {
     try {
@@ -49,11 +53,18 @@ export default function LearnScreen() {
   useFocusEffect(
     useCallback(() => {
       (async () => {
+        const dismissed = await storage.getItem(`tq_trial_nudge_${todayKey}`, false);
+        setNudgeDismissed(!!dismissed);
         await Promise.all([load(), refresh()]);
         setLoading(false);
       })();
-    }, [load, refresh])
+    }, [load, refresh, todayKey])
   );
+
+  const dismissNudge = async () => {
+    setNudgeDismissed(true);
+    await storage.setItem(`tq_trial_nudge_${todayKey}`, true);
+  };
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -64,6 +75,7 @@ export default function LearnScreen() {
   if (loading || !user) return <Loading testID="learn-loading" />;
 
   const dailyPct = Math.min(100, Math.round((user.daily_xp / user.daily_goal) * 100));
+  const showNudge = user.in_trial && user.trial_days_left <= 2 && !nudgeDismissed;
   let currentAssigned = false;
 
   return (
@@ -106,6 +118,32 @@ export default function LearnScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand} />
         }
       >
+        {showNudge && (
+          <Pressable
+            testID="trial-nudge-banner"
+            onPress={() => router.push("/paywall")}
+            style={styles.nudge}
+          >
+            <View style={styles.nudgeIcon}>
+              <MaterialCommunityIcons name="clock-alert-outline" size={22} color={colors.onAmber} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.nudgeTitle}>
+                Your Pro trial ends in {user.trial_days_left} day{user.trial_days_left === 1 ? "" : "s"}
+              </Text>
+              <Text style={styles.nudgeSub}>Keep unlimited AI Tutor & advanced lessons →</Text>
+            </View>
+            <Pressable
+              testID="trial-nudge-dismiss"
+              onPress={dismissNudge}
+              hitSlop={10}
+              style={styles.nudgeClose}
+            >
+              <Ionicons name="close" size={18} color={colors.onSurfaceSecondary} />
+            </Pressable>
+          </Pressable>
+        )}
+
         {units.map((unit) => (
           <View key={unit.id} style={styles.unit}>
             <View style={[styles.unitHeader, { borderLeftColor: unit.color }]}>
@@ -255,7 +293,29 @@ const styles = StyleSheet.create({
   dailyRow: { flexDirection: "row", justifyContent: "space-between", marginTop: spacing.sm },
   dailyText: { fontFamily: fonts.bodyMed, fontSize: 12, color: colors.muted },
   unit: { marginBottom: spacing.xl },
-  unitHeader: {
+  nudge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
+    backgroundColor: "#1A1405",
+    borderWidth: 1,
+    borderColor: colors.amber,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+  },
+  nudgeIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
+    backgroundColor: colors.amber,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  nudgeTitle: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.onSurface },
+  nudgeSub: { fontFamily: fonts.body, fontSize: 12, color: colors.onSurfaceSecondary, marginTop: 1 },
+  nudgeClose: { padding: 4 },  unitHeader: {
     marginHorizontal: spacing.lg,
     marginBottom: spacing.lg,
     paddingLeft: spacing.md,
