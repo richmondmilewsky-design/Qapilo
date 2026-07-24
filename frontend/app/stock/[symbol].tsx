@@ -3,12 +3,12 @@ import { View, Text, StyleSheet, ScrollView, Pressable, Dimensions } from "react
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { Image } from "expo-image";
 import { LineChart } from "react-native-gifted-charts";
 import { apiRequest } from "@/src/api/client";
 import { useI18n } from "@/src/i18n/I18nContext";
 import { colors, fonts, radius, spacing } from "@/src/theme/theme";
 import { Loading } from "@/src/components/ui";
+import StockLogo from "@/src/components/StockLogo";
 
 type Detail = {
   symbol: string;
@@ -60,7 +60,7 @@ export default function StockDetail() {
 
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xxl }} showsVerticalScrollIndicator={false}>
         <View style={styles.head}>
-          <Image source={{ uri: data.logo }} style={styles.logo} contentFit="contain" transition={200} />
+          <StockLogo uri={data.logo} symbol={data.symbol} size={56} borderRadius={radius.md} />
           <View style={{ flex: 1 }}>
             <Text style={styles.name}>{data.name}</Text>
             <View style={styles.catTag}>

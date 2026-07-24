@@ -12,12 +12,12 @@ import {
 import { useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { Image } from "expo-image";
 import { apiRequest } from "@/src/api/client";
 import { useI18n } from "@/src/i18n/I18nContext";
 import { LanguageButton } from "@/src/components/LanguageButton";
 import { colors, fonts, radius, spacing } from "@/src/theme/theme";
 import { Loading } from "@/src/components/ui";
+import StockLogo from "@/src/components/StockLogo";
 
 type Stock = {
   symbol: string;
@@ -154,7 +154,7 @@ export default function ExploreScreen() {
                 style={({ pressed }) => [styles.card, { opacity: pressed ? 0.85 : 1 }]}
               >
                 <View style={styles.cardTop}>
-                  <Image source={{ uri: item.logo }} style={styles.logo} contentFit="contain" transition={200} />
+                  <StockLogo uri={item.logo} symbol={item.symbol} size={42} borderRadius={radius.sm} />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.symbol}>{item.symbol}</Text>
                     <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
