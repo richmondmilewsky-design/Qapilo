@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable, Dimensions } from "react
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 import { LineChart } from "react-native-gifted-charts";
 import { apiRequest } from "@/src/api/client";
 import { useI18n } from "@/src/i18n/I18nContext";
@@ -21,6 +22,7 @@ type Detail = {
   change_pct: number;
   source: string;
   history: number[];
+  in_watchlist: boolean;
 };
 
 export default function StockDetail() {
@@ -41,6 +43,17 @@ export default function StockDetail() {
     })();
   }, [symbol, locale]);
 
+  const toggleWatch = async () => {
+    if (!data) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setData({ ...data, in_watchlist: !data.in_watchlist });
+    try {
+      await apiRequest(`/watchlist/${data.symbol}/toggle`, { method: "POST" });
+    } catch {
+      setData((prev) => (prev ? { ...prev, in_watchlist: !prev.in_watchlist } : prev));
+    }
+  };
+
   if (!data) return <Loading testID="stock-detail-loading" />;
 
   const up = data.change_pct >= 0;
@@ -55,7 +68,13 @@ export default function StockDetail() {
           <Ionicons name="chevron-back" size={26} color={colors.onSurface} />
         </Pressable>
         <Text style={styles.topTitle}>{data.symbol}</Text>
-        <View style={{ width: 26 }} />
+        <Pressable testID={`watch-toggle-${data.symbol}`} onPress={toggleWatch} hitSlop={12}>
+          <Ionicons
+            name={data.in_watchlist ? "star" : "star-outline"}
+            size={24}
+            color={data.in_watchlist ? colors.amber : colors.muted}
+          />
+        </Pressable>
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xxl }} showsVerticalScrollIndicator={false}>

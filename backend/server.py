@@ -580,6 +580,7 @@ async def finnhub_quote(symbol: str):
 async def list_stocks(category: Optional[str] = None, q: Optional[str] = None,
                       lang: str = "en", user: dict = Depends(get_current_user)):
     lang = norm_lang(lang)
+    watchlist = set(user.get("watchlist", []))
     items = STOCKS
     if category and category != "All":
         items = [s for s in items if s["category"] == category]
@@ -594,8 +595,11 @@ async def list_stocks(category: Optional[str] = None, q: Optional[str] = None,
         out.append({
             "symbol": s["symbol"], "name": s["name"], "category": s["category"],
             "logo": f"https://logo.clearbit.com/{s['domain']}",
-            "explain": loc_stock_explain(s["symbol"], s["explain"], lang), **quote,
+            "explain": loc_stock_explain(s["symbol"], s["explain"], lang),
+            "in_watchlist": s["symbol"] in watchlist, **quote,
         })
+    # Pin watchlisted stocks to the top, preserving relative order within groups.
+    out.sort(key=lambda x: not x["in_watchlist"])
     return {"stocks": out, "categories": CATEGORIES}
 
 
@@ -610,8 +614,28 @@ async def stock_detail(symbol: str, lang: str = "en", user: dict = Depends(get_c
         "logo": f"https://logo.clearbit.com/{s['domain']}",
         "explain": loc_stock_explain(s["symbol"], s["explain"], norm_lang(lang)),
         "history": fallback_history(s["symbol"], end_price=quote["price"]),
+        "in_watchlist": s["symbol"] in set(user.get("watchlist", [])),
         **quote,
     }
+
+
+@api.post("/watchlist/{symbol}/toggle")
+async def toggle_watchlist(symbol: str, user: dict = Depends(get_current_user)):
+    sym = symbol.upper()
+    if sym not in STOCK_MAP:
+        raise HTTPException(status_code=404, detail="Stock not found")
+    watchlist = list(user.get("watchlist", []))
+    if sym in watchlist:
+        watchlist.remove(sym)
+        in_watchlist = False
+    else:
+        watchlist.append(sym)
+        in_watchlist = True
+    await db.users.update_one(
+        {"user_id": user["user_id"]},
+        {"$set": {"watchlist": watchlist}},
+    )
+    return {"symbol": sym, "in_watchlist": in_watchlist, "watchlist": watchlist}
 
 
 # ----------------------------- AI Tutor (Claude Sonnet 4.6) -----------------------------

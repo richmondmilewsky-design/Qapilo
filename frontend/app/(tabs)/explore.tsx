@@ -12,6 +12,7 @@ import {
 import { useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 import { apiRequest } from "@/src/api/client";
 import { useI18n } from "@/src/i18n/I18nContext";
 import { LanguageButton } from "@/src/components/LanguageButton";
@@ -29,6 +30,7 @@ type Stock = {
   change: number;
   change_pct: number;
   source: string;
+  in_watchlist: boolean;
 };
 
 const CATEGORIES = ["All", "Tech", "Auto", "Finance", "Retail", "Media", "ETF"];
@@ -72,11 +74,34 @@ export default function ExploreScreen() {
     setRefreshing(false);
   };
 
+  const sortByWatch = (list: Stock[]) =>
+    [...list].sort((a, b) => Number(!a.in_watchlist) - Number(!b.in_watchlist));
+
+  const toggleWatch = async (symbol: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setStocks((prev) =>
+      sortByWatch(
+        prev.map((s) => (s.symbol === symbol ? { ...s, in_watchlist: !s.in_watchlist } : s))
+      )
+    );
+    try {
+      await apiRequest(`/watchlist/${symbol}/toggle`, { method: "POST" });
+    } catch {
+      // revert on failure
+      setStocks((prev) =>
+        sortByWatch(
+          prev.map((s) => (s.symbol === symbol ? { ...s, in_watchlist: !s.in_watchlist } : s))
+        )
+      );
+    }
+  };
+
   const filtered = stocks.filter(
     (s) =>
       s.symbol.toLowerCase().includes(query.toLowerCase()) ||
       s.name.toLowerCase().includes(query.toLowerCase())
   );
+  const watchedCount = filtered.filter((s) => s.in_watchlist).length;
 
   return (
     <View style={[styles.root, { paddingTop: insets.top + spacing.md }]}>
@@ -145,36 +170,63 @@ export default function ExploreScreen() {
               <Text style={styles.emptyText}>{t("explore.empty")}</Text>
             </View>
           }
-          renderItem={({ item }) => {
+          renderItem={({ item, index }) => {
             const up = item.change_pct >= 0;
+            const showWatchHeader = watchedCount > 0 && index === 0;
+            const showAllHeader = watchedCount > 0 && index === watchedCount;
             return (
-              <Pressable
-                testID={`stock-card-${item.symbol}`}
-                onPress={() => router.push(`/stock/${item.symbol}`)}
-                style={({ pressed }) => [styles.card, { opacity: pressed ? 0.85 : 1 }]}
-              >
-                <View style={styles.cardTop}>
-                  <StockLogo uri={item.logo} symbol={item.symbol} size={42} borderRadius={radius.sm} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.symbol}>{item.symbol}</Text>
-                    <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
+              <>
+                {showWatchHeader && (
+                  <View style={styles.sectionHeader}>
+                    <Ionicons name="star" size={14} color={colors.amber} />
+                    <Text style={styles.sectionText}>{t("explore.watchlist")}</Text>
                   </View>
-                  <View style={{ alignItems: "flex-end" }}>
-                    <Text style={styles.price}>${item.price.toLocaleString()}</Text>
-                    <View style={[styles.changeTag, { backgroundColor: up ? "#0C2E22" : "#2E0C0C" }]}>
-                      <Ionicons
-                        name={up ? "caret-up" : "caret-down"}
-                        size={11}
-                        color={up ? colors.brand : colors.error}
-                      />
-                      <Text style={[styles.changeText, { color: up ? colors.brand : colors.error }]}>
-                        {Math.abs(item.change_pct).toFixed(2)}%
-                      </Text>
+                )}
+                {showAllHeader && (
+                  <View style={[styles.sectionHeader, { marginTop: spacing.sm }]}>
+                    <Text style={styles.sectionText}>{t("explore.allStocks")}</Text>
+                  </View>
+                )}
+                <Pressable
+                  testID={`stock-card-${item.symbol}`}
+                  onPress={() => router.push(`/stock/${item.symbol}`)}
+                  style={({ pressed }) => [styles.card, { opacity: pressed ? 0.85 : 1 }]}
+                >
+                  <View style={styles.cardTop}>
+                    <StockLogo uri={item.logo} symbol={item.symbol} size={42} borderRadius={radius.sm} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.symbol}>{item.symbol}</Text>
+                      <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
                     </View>
+                    <View style={{ alignItems: "flex-end" }}>
+                      <Text style={styles.price}>${item.price.toLocaleString()}</Text>
+                      <View style={[styles.changeTag, { backgroundColor: up ? "#0C2E22" : "#2E0C0C" }]}>
+                        <Ionicons
+                          name={up ? "caret-up" : "caret-down"}
+                          size={11}
+                          color={up ? colors.brand : colors.error}
+                        />
+                        <Text style={[styles.changeText, { color: up ? colors.brand : colors.error }]}>
+                          {Math.abs(item.change_pct).toFixed(2)}%
+                        </Text>
+                      </View>
+                    </View>
+                    <Pressable
+                      testID={`watch-toggle-${item.symbol}`}
+                      hitSlop={10}
+                      onPress={() => toggleWatch(item.symbol)}
+                      style={styles.starBtn}
+                    >
+                      <Ionicons
+                        name={item.in_watchlist ? "star" : "star-outline"}
+                        size={22}
+                        color={item.in_watchlist ? colors.amber : colors.muted}
+                      />
+                    </Pressable>
                   </View>
-                </View>
-                <Text style={styles.explain} numberOfLines={2}>{item.explain}</Text>
-              </Pressable>
+                  <Text style={styles.explain} numberOfLines={2}>{item.explain}</Text>
+                </Pressable>
+              </>
             );
           }}
         />
@@ -227,6 +279,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   cardTop: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+  starBtn: { paddingLeft: spacing.sm, paddingVertical: spacing.xs },
+  sectionHeader: { flexDirection: "row", alignItems: "center", gap: spacing.xs, marginBottom: spacing.sm, marginLeft: spacing.xs },
+  sectionText: { fontFamily: fonts.bodySemi, fontSize: 13, color: colors.muted, letterSpacing: 0.5, textTransform: "uppercase" },
   logo: { width: 42, height: 42, borderRadius: radius.sm, backgroundColor: "#FFFFFF" },
   symbol: { fontFamily: fonts.display, fontSize: 20, color: colors.onSurface },
   name: { fontFamily: fonts.body, fontSize: 13, color: colors.muted },

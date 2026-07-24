@@ -1,0 +1,44 @@
+{
+  "summary": "TradeQuest iteration_5 — Watchlist feature (star favorites, pinned to top). Backend: 11/11 pytest passed in /app/backend/tests/test_iteration_5_watchlist.py. POST /api/watchlist/{symbol}/toggle correctly adds symbol on first call (returns {symbol, in_watchlist:true, watchlist:[...]}), removes on second, normalizes lowercase input (msft→MSFT), returns 404 for invalid symbol (ZZZZZ), and is auth-gated (401 without JWT). GET /api/stocks: every item includes in_watchlist bool, and watchlisted symbols are pinned to the top of the list (verified after toggling 2 non-adjacent symbols — both appear at indices 0 & 1). GET /api/stocks/{symbol}: in_watchlist flips correctly with toggle. Persistence verified via re-login as same user (fresh JWT) → watchlist still contains TSLA and TSLA still pinned at top of /api/stocks. Category filter (?category=Tech) and search (?q=app) still return in_watchlist on every item — no regression. Frontend (390x844 mobile viewport, 3 separate signup+agree sessions): Explore tab renders 16 stock cards, each with a testID='watch-toggle-{SYMBOL}' star. Tapping the star (a) does NOT navigate to detail (regression pass — Pressable.onPress on star does not bubble into card Pressable), (b) moves the stock to the top under a WATCHLIST section header (with amber star icon), (c) shows an 'ALL STOCKS' section header for the rest. Both headers only appear when watchedCount>0 (confirmed hidden by default). Stock detail top bar (testID='watch-toggle-{SYMBOL}') toggles state — after starring MSFT/NVDA from detail and returning to Explore, that stock is pinned to top with gold star. Full page RELOAD (browser refresh) preserves the pinned WATCHLIST — NVDA remained at index 0 with WATCHLIST header still shown, proving persistence via user.watchlist in MongoDB. Search + category filter behave normally.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "app/stock/[symbol].tsx + app/(tabs)/explore.tsx", "issue": "Duplicate testID collision on web: when the stock detail screen is open, Expo Router keeps the previous Explore screen mounted in the DOM, so [data-testid=\"watch-toggle-{SYMBOL}\"] matches TWO elements — the hidden card star from Explore AND the visible top-bar star from detail. Playwright's page.click() on the shared selector fails with 'Element is not visible' (picks the hidden one). This is a testability/accessibility concern; on native it is fine, but web testing has to resort to querying all matches and clicking the last. Recommendation: rename detail-screen star testID to 'watch-toggle-detail-{SYMBOL}' (or scope card stars as 'watch-toggle-card-{SYMBOL}'). Reference: /app/frontend/app/stock/[symbol].tsx:71 and /app/frontend/app/(tabs)/explore.tsx:215"}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration_5_watchlist.py",
+    "/app/test_reports/pytest/pytest_iteration_5.xml"
+  ],
+  "action_items": [
+    "(Medium) Disambiguate testIDs between Explore card star and Stock-detail top-bar star. Suggestion: change detail star to testID={`watch-toggle-detail-${data.symbol}`} in /app/frontend/app/stock/[symbol].tsx:71 so automated tests and screen readers can unambiguously reach the top-bar star while Explore is still mounted in web/Expo Router history.",
+    "(Carried over from iteration_4) Consider a local fallback for clearbit.com logo image failures — still noisy in console (ERR_NAME_NOT_RESOLVED for ~16 requests per Explore render).",
+    "(Carried over) Replace TouchableWithoutFeedback with Pressable in /app/frontend/app/auth.tsx (deprecation warning still logged).",
+    "(Optional refactor) server.py now ~962 lines; consider splitting routers (auth, curriculum, stocks, watchlist, tutor, paypal)."
+  ],
+  "critical_code_review_comments": [
+    "POST /api/watchlist/{symbol}/toggle correctly uppercases input and validates against STOCK_MAP before touching the DB (returns 404 for unknown symbols). Watchlist mutation uses $set with the full list — idempotent and safe.",
+    "GET /api/stocks pins watchlisted items via 'out.sort(key=lambda x: not x[\"in_watchlist\"])' — Python's sort is stable, so the relative order of watchlisted items and of non-watchlisted items is preserved from STOCKS[] order. This matched observed frontend behavior.",
+    "Frontend Explore optimistically flips in_watchlist locally before awaiting the API, and rolls back on error (explore.tsx:80-99) — good UX + resilient.",
+    "Section headers use showWatchHeader = watchedCount>0 && index===0 and showAllHeader = watchedCount>0 && index===watchedCount — clean, correct, and only render when at least one stock is watchlisted (matches spec).",
+    "Star Pressable in Explore is nested INSIDE the card Pressable but its onPress does NOT bubble to the parent card — verified by testing (tapping star did not open detail). React Native handles inner-Pressable capture correctly on web here.",
+    "Stock detail toggleWatch is optimistic + rollback on error (stock/[symbol].tsx:46-55). Uses Haptics.impactAsync — no-ops on web as expected."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration_5_watchlist.py (new)",
+    "/app/test_reports/iteration_5.json (new)",
+    "/app/test_reports/pytest/pytest_iteration_5.xml (new)"
+  ],
+  "success_rate": {
+    "backend": "100% (11/11 iteration_5)",
+    "frontend": "100% of exercisable flows: signup → agreement → Explore → toggle star (list) → detail star toggle → back → verify pinned order → full page reload → verify persistence → category + search regression"
+  },
+  "seed_data_creation": "Ephemeral test users created via signup: TEST_it5_<hex>@tradequest.app (pytest), uit5_<ts>/uit5b_<ts>/uit5c_<ts>@tradequest.app (playwright). No production data touched.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Watchlist testIDs: 'watch-toggle-{SYMBOL}' on both Explore card AND Stock detail top bar. NOTE: On Expo web these two elements coexist in the DOM when navigating to detail (Expo Router keeps the previous screen mounted). Playwright needs to use query_selector_all(...) and click the LAST element, or use bounding-box mouse-coord clicks, to hit the detail-screen star. Section header text used: 'Watchlist' (in styles.sectionText it is transformed to uppercase — matches on 'WATCHLIST'). Backend endpoint: POST /api/watchlist/{symbol}/toggle → returns {symbol, in_watchlist, watchlist}, 404 for unknown symbol, 401 without auth. GET /api/stocks and /api/stocks/{symbol} include in_watchlist bool; list is pinned by watchlist.",
+  "rca_of_issue": "N/A — feature working end-to-end. Only concern: shared testID on the detail top-bar star collides with the Explore card star in the web DOM (both screens simultaneously mounted). Not a functional bug on native/mobile — feature works. It is a web-testability nit; main agent should rename the detail testID to disambiguate."
+}
