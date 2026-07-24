@@ -526,7 +526,10 @@ async def list_stocks(category: Optional[str] = None, q: Optional[str] = None,
         items = [s for s in items if ql in s["symbol"].lower() or ql in s["name"].lower()]
     out = []
     for s in items:
-        quote = await av_quote(s["symbol"])
+        # Use fast local quotes for the list to conserve the Alpha Vantage
+        # daily quota (free tier = 25 req/day). Live quotes are fetched on the
+        # single stock detail screen instead.
+        quote = fallback_quote(s["symbol"])
         out.append({
             "symbol": s["symbol"], "name": s["name"], "category": s["category"],
             "logo": f"https://logo.clearbit.com/{s['domain']}",

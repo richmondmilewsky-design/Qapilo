@@ -85,8 +85,27 @@ export default function Paywall() {
     }
   };
 
-  const manageCancel = async () => {
+  const restore = async () => {
     setBusy(true);
+    setNote("");
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      const res = await apiRequest<{ user: any }>("/subscription/status");
+      setUser(res.user);
+      await load();
+      setNote(
+        res.user.is_pro
+          ? "Subscription restored — Pro is active!"
+          : "No active subscription found yet. If you just paid, wait a moment and try again."
+      );
+    } catch (e: any) {
+      setNote(e.message || "Could not refresh subscription.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const manageCancel = async () => {    setBusy(true);
     try {
       const res = await apiRequest<{ user: any }>("/subscription/cancel", { method: "POST" });
       setUser(res.user);
@@ -179,6 +198,11 @@ export default function Paywall() {
           </View>
         )}
 
+        <Pressable testID="restore-sub-button" onPress={restore} disabled={busy} style={styles.restore}>
+          <Ionicons name="refresh" size={16} color={colors.onSurfaceSecondary} />
+          <Text style={styles.restoreText}>Restore / Refresh subscription</Text>
+        </Pressable>
+
         <Text style={styles.legal}>
           Billed monthly via PayPal after the free trial. Educational content only — not financial advice.
         </Text>
@@ -261,4 +285,13 @@ const styles = StyleSheet.create({
   },
   soonText: { flex: 1, fontFamily: fonts.body, fontSize: 13, color: colors.onSurfaceSecondary, lineHeight: 19 },
   legal: { fontFamily: fonts.body, fontSize: 11, color: colors.muted, textAlign: "center", marginTop: spacing.xl, lineHeight: 16 },
+  restore: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+    marginTop: spacing.xl,
+    paddingVertical: spacing.md,
+  },
+  restoreText: { fontFamily: fonts.bodyMed, fontSize: 14, color: colors.onSurfaceSecondary },
 });
