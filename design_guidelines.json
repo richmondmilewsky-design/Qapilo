@@ -1,0 +1,162 @@
+{
+  "app_name": "TradeQuest",
+  "personality": "4 Tactile structure fused with 7 Dark-First Utility colors and typography",
+  "personality_one_liner": "A sleek, command-center learning journey that uses tactile gamification to make mastering the stock market feel powerful and rewarding.",
+  "color": {
+    "surface": "#09090B",
+    "onSurface": "#FAFAFA",
+    "surfaceSecondary": "#18181B",
+    "onSurfaceSecondary": "#E4E4E7",
+    "surfaceTertiary": "#27272A",
+    "onSurfaceTertiary": "#D4D4D8",
+    "surfaceInverse": "#FAFAFA",
+    "onSurfaceInverse": "#09090B",
+    "brand": "#10B981",
+    "brandPrimary": "#10B981",
+    "onBrandPrimary": "#022C22",
+    "brandSecondary": "#F59E0B",
+    "onBrandSecondary": "#451A03",
+    "brandTertiary": "#047857",
+    "onBrandTertiary": "#D1FAE5",
+    "success": "#10B981",
+    "onSuccess": "#022C22",
+    "warning": "#F59E0B",
+    "onWarning": "#451A03",
+    "error": "#EF4444",
+    "onError": "#450A0A",
+    "info": "#E4E4E7",
+    "onInfo": "#09090B",
+    "border": "#27272A",
+    "borderStrong": "#3F3F46",
+    "divider": "#27272A"
+  },
+  "typography": {
+    "displayFontFamily": "Barlow Condensed",
+    "textFontFamily": "Manrope",
+    "scale": {
+      "sm": 12,
+      "base": 14,
+      "lg": 16,
+      "xl": 20,
+      "2xl": 24
+    }
+  },
+  "spacing": {
+    "rule": "Generous vertical breathing room for path nodes, tight and intentional padding inside data cards.",
+    "xs": 4,
+    "sm": 8,
+    "md": 12,
+    "lg": 16,
+    "xl": 24,
+    "2xl": 32,
+    "3xl": 48
+  },
+  "radius_tokens": {
+    "sm": 6,
+    "md": 12,
+    "lg": 20,
+    "pill": 999
+  },
+  "shadow_tier": 0,
+  "navigation": "bottom_tabs",
+  "icon_set": "Phosphor",
+  "glassmorphism": {
+    "enabled": true,
+    "do's": [
+      "Use frosted glass on the bottom tab bar when the learning path scrolls behind it.",
+      "Apply glass to sticky top headers showing Streaks and XP.",
+      "Use glass for modal scrims and bottom sheet drag handles."
+    ],
+    "dont's": [
+      "Do not use glass on standard lesson nodes or stock cards.",
+      "Do not use glass on form inputs or quiz answer options."
+    ]
+  },
+  "platform_libraries": {
+    "glass": {
+      "ios": "expo-glass-effect",
+      "android": "expo-blur",
+      "low_end_android_fallback": "solid surfaceSecondary"
+    },
+    "image": "expo-image",
+    "blur": "expo-blur",
+    "bottom_sheet": "@gorhom/bottom-sheet",
+    "animation": "react-native-reanimated",
+    "gesture": "react-native-gesture-handler"
+  },
+  "screens": [
+    {
+      "name": "Auth",
+      "purpose": "Frictionless entry emphasizing the gamified value prop.",
+      "states": {
+        "loading": "Centered brand spinner.",
+        "empty": "N/A",
+        "error": "Standard toast or bottom sheet with retry button."
+      },
+      "layout": "Brand icon at top. Clear, oversized header. 'Continue with Google' as primary tactical button. Email/Password fields below. Footer CTA sticky at bottom inside KeyboardAvoidingView."
+    },
+    {
+      "name": "Learning Path (Home)",
+      "purpose": "A winding vertical journey of lessons serving as the primary hub.",
+      "states": {
+        "loading": "Skeleton nodes following the winding layout.",
+        "empty": "N/A",
+        "error": "Centered warning icon with 'Unable to load path' and Retry button."
+      },
+      "layout": "Sticky glass header (Streak flame in Amber, XP count). Winding vertical path of circular nodes (`pill` radius, tactile feel). Each node shows completion via a colored ring. Current node is oversized and elevated. Grouped units have sticky sub-headers."
+    },
+    {
+      "name": "Lesson / Quiz",
+      "purpose": "Focus-driven interactive learning screen with immediate feedback.",
+      "states": {
+        "loading": "Spinner",
+        "empty": "N/A",
+        "error": "Retry lesson button"
+      },
+      "layout": "Progress bar fixed at top. Large typography for questions. Answer choices are tactile, chunky cards. Sticky bottom CTA ('Check' or 'Continue') anchored above safe area with haptic feedback wired to press."
+    },
+    {
+      "name": "Stocks Explorer",
+      "purpose": "Discover and learn about real stocks with live data and plain-English summaries.",
+      "states": {
+        "loading": "Skeleton rows for stock list.",
+        "empty": "Illustration with 'No stocks found. Try another search.'",
+        "error": "Error message with Retry button."
+      },
+      "layout": "Search bar and filter chips (Tech, Crypto, Auto) at the top. List of cards. Each card uses single-column width minus padding. Card content: Logo image left, Ticker + Name right, followed by a 1-sentence plain English explainer. Current price and daily change in bold Barlow Condensed."
+    },
+    {
+      "name": "Profile",
+      "purpose": "Showcase user identity, stats, and gamified achievements.",
+      "states": {
+        "loading": "Skeleton profile layout.",
+        "empty": "N/A",
+        "error": "Retry button."
+      },
+      "layout": "Hero banner with dark abstract geometric texture (`profile_cover_texture`) using gradient-to-dark scrim pattern. Avatar overlapping banner. Grid layout for Stats (XP, Streak, Rank) using `surfaceSecondary` cards. List of earned Badges below."
+    }
+  ],
+  "images": {
+    "profile_cover_texture": {
+      "url": "https://images.unsplash.com/photo-1638184984605-af1f05249a56?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODd8MHwxfHNlYXJjaHwyfHxkYXJrJTIwbWluaW1hbCUyMGdlb21ldHJpYyUyMHRleHR1cmV8ZW58MHx8fHwxNzg0ODgxOTU1fDA&ixlib=rb-4.1.0&q=85",
+      "alt": "Dark minimal geometric texture for profile banner"
+    },
+    "apple_logo_fallback": {
+      "url": "https://images.unsplash.com/photo-1621768216002-5ac171876625?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NjV8MHwxfHNlYXJjaHwxfHxhcHBsZSUyMGxvZ28lMjBwbmclMjB0cmFuc3BhcmVudHxlbnwwfHx8fDE3ODQ4ODE5NTV8MA&ixlib=rb-4.1.0&q=85",
+      "alt": "Apple logo photo fallback"
+    },
+    "tesla_logo_fallback": {
+      "url": "https://images.unsplash.com/photo-1662947475743-35a389428742?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDN8MHwxfHNlYXJjaHwxfHx0ZXNsYSUyMGxvZ28lMjBwbmclMjB0cmFuc3BhcmVudHxlbnwwfHx8fDE3ODQ4ODE5NTV8MA&ixlib=rb-4.1.0&q=85",
+      "alt": "Tesla logo photo fallback"
+    }
+  },
+  "instructions_to_main_agent": [
+    "Strictly follow the Dark-First Utility color palette. No blues, purples, or indigos anywhere.",
+    "Max font weight across the app must be capped at 500. Use Barlow Condensed for display/numbers to create hierarchy instead of font weight.",
+    "Gamified learning path should use a winding vertical stack with distinct nodes. Make nodes chunky and touchable (Tactile UI fusion).",
+    "Use Emerald Green for success/growth/primary actions, and Amber/Gold for XP/Streaks.",
+    "Always place a gradient-to-dark scrim over the profile banner image before laying out the avatar or text.",
+    "Primary CTA buttons must be sticky at the bottom over scrolling content, utilizing safe area margins.",
+    "Wire subtle haptics to path node presses, quiz option selection, and the sticky 'Check' button."
+  ]
+}
