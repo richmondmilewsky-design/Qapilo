@@ -28,7 +28,11 @@ export async function apiRequest<T = any>(path: string, opts: Opts = {}): Promis
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error((data && (data.detail || data.message)) || "Something went wrong");
+    let detail = data && data.detail;
+    if (Array.isArray(detail)) {
+      detail = detail.map((d: any) => d?.msg || d?.detail || "").filter(Boolean).join(", ");
+    }
+    throw new Error(detail || (data && data.message) || "Something went wrong");
   }
   return data as T;
 }
