@@ -12,6 +12,7 @@ import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { apiRequest } from "@/src/api/client";
 import { useAuth } from "@/src/context/AuthContext";
+import { useI18n } from "@/src/i18n/I18nContext";
 import { PrimaryButton, Loading } from "@/src/components/ui";
 import { colors, fonts, radius, spacing, BADGE_ICONS } from "@/src/theme/theme";
 
@@ -40,6 +41,7 @@ export default function LessonScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { setUser } = useAuth();
+  const { t, locale } = useI18n();
 
   const [lesson, setLesson] = useState<LessonData | null>(null);
   const [step, setStep] = useState(0);
@@ -58,7 +60,7 @@ export default function LessonScreen() {
         router.back();
       }
     })();
-  }, [id]);
+  }, [id, locale]);
 
   if (!lesson) return <Loading testID="lesson-loading" />;
 
@@ -127,28 +129,28 @@ export default function LessonScreen() {
             />
           </View>
           <Text style={styles.resultTitle}>
-            {result.perfect ? "Perfect!" : "Lesson Complete!"}
+            {result.perfect ? t("lesson.perfect") : t("lesson.complete")}
           </Text>
           <Text style={styles.resultSub}>
-            You got {correctCount}/{lesson.questions.length} correct
+            {t("lesson.gotCorrect")} {correctCount}/{lesson.questions.length}
           </Text>
 
           <View style={styles.rewardRow}>
             <View style={styles.rewardCard}>
               <MaterialCommunityIcons name="flash" size={26} color={colors.brand} />
               <Text style={styles.rewardValue}>+{result.earned_xp}</Text>
-              <Text style={styles.rewardLabel}>XP EARNED</Text>
+              <Text style={styles.rewardLabel}>{t("lesson.xpEarned")}</Text>
             </View>
             <View style={styles.rewardCard}>
               <MaterialCommunityIcons name="fire" size={26} color={colors.amber} />
               <Text style={styles.rewardValue}>{result.user.streak}</Text>
-              <Text style={styles.rewardLabel}>DAY STREAK</Text>
+              <Text style={styles.rewardLabel}>{t("lesson.dayStreak")}</Text>
             </View>
           </View>
 
           {result.new_badges.length > 0 && (
             <View style={styles.badgeUnlock}>
-              <Text style={styles.badgeUnlockTitle}>NEW BADGE UNLOCKED</Text>
+              <Text style={styles.badgeUnlockTitle}>{t("lesson.newBadge")}</Text>
               {result.new_badges.map((b) => (
                 <View key={b.id} style={styles.badgeRow} testID={`unlocked-badge-${b.id}`}>
                   <View style={styles.badgeIcon}>
@@ -170,7 +172,7 @@ export default function LessonScreen() {
         <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
           <PrimaryButton
             testID="result-continue-button"
-            label="Continue"
+            label={t("lesson.continue")}
             onPress={() => router.back()}
           />
         </View>
@@ -208,7 +210,7 @@ export default function LessonScreen() {
           </View>
         ) : (
           <View testID="lesson-question">
-            <Text style={styles.tag}>QUESTION {qIndex + 1} OF {lesson.questions.length}</Text>
+            <Text style={styles.tag}>{t("lesson.question")} {qIndex + 1} {t("lesson.of")} {lesson.questions.length}</Text>
             <Text style={styles.question}>{question!.q}</Text>
             <View style={{ gap: spacing.md, marginTop: spacing.lg }}>
               {question!.options.map((opt, i) => {
@@ -259,7 +261,7 @@ export default function LessonScreen() {
                 testID="answer-explanation"
               >
                 <Text style={styles.explainTitle}>
-                  {selected === question!.answer ? "Correct!" : "Not quite"}
+                  {selected === question!.answer ? t("lesson.correct") : t("lesson.notQuite")}
                 </Text>
                 <Text style={styles.explainText}>{question!.explain}</Text>
               </View>
@@ -271,7 +273,7 @@ export default function LessonScreen() {
       <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
         <PrimaryButton
           testID="lesson-action-button"
-          label={inCards ? "Continue" : checked ? "Continue" : "Check"}
+          label={inCards ? t("lesson.continue") : checked ? t("lesson.continue") : t("lesson.check")}
           onPress={next}
           loading={submitting}
           disabled={!inCards && !checked && selected === null}

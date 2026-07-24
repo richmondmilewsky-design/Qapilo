@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LineChart } from "react-native-gifted-charts";
 import { apiRequest } from "@/src/api/client";
+import { useI18n } from "@/src/i18n/I18nContext";
 import { colors, fonts, radius, spacing } from "@/src/theme/theme";
 import { Loading } from "@/src/components/ui";
 
@@ -26,6 +27,7 @@ export default function StockDetail() {
   const { symbol } = useLocalSearchParams<{ symbol: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { locale } = useI18n();
   const [data, setData] = useState<Detail | null>(null);
 
   useEffect(() => {
@@ -37,7 +39,7 @@ export default function StockDetail() {
         router.back();
       }
     })();
-  }, [symbol]);
+  }, [symbol, locale]);
 
   if (!data) return <Loading testID="stock-detail-loading" />;
 

@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { apiRequest } from "@/src/api/client";
+import { useI18n } from "@/src/i18n/I18nContext";
 import { colors, fonts, radius, spacing } from "@/src/theme/theme";
 
 type Msg = { role: "user" | "assistant"; content: string };
@@ -29,6 +30,7 @@ const SUGGESTIONS = [
 export default function TutorScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { t, locale } = useI18n();
   const listRef = useRef<FlatList>(null);
 
   const [messages, setMessages] = useState<Msg[]>([]);
@@ -68,7 +70,7 @@ export default function TutorScreen() {
     try {
       const res = await apiRequest<{ reply: string; remaining: number | null }>("/tutor/chat", {
         method: "POST",
-        body: { message: msg },
+        body: { message: msg, lang: locale },
       });
       setMessages((m) => [...m, { role: "assistant", content: res.reply }]);
       setRemaining(res.remaining);
@@ -101,16 +103,16 @@ export default function TutorScreen() {
             <MaterialCommunityIcons name="robot-happy" size={20} color={colors.onBrand} />
           </View>
           <View>
-            <Text style={styles.title}>Quest AI Tutor</Text>
+            <Text style={styles.title}>{t("tutor.title")}</Text>
             <Text style={styles.subtitle}>
-              {isPro ? "Pro · Unlimited" : `Free · ${remaining ?? 0} left today`}
+              {isPro ? t("tutor.unlimited") : `${t("tutor.free")} · ${remaining ?? 0} ${t("tutor.left")}`}
             </Text>
           </View>
         </View>
         {!isPro && (
           <Pressable testID="tutor-upgrade-pill" onPress={() => router.push("/paywall")} style={styles.proPill}>
             <MaterialCommunityIcons name="crown" size={14} color={colors.onAmber} />
-            <Text style={styles.proPillText}>Go Pro</Text>
+            <Text style={styles.proPillText}>{t("tutor.goPro")}</Text>
           </Pressable>
         )}
       </View>
@@ -132,10 +134,8 @@ export default function TutorScreen() {
               <View style={styles.emptyBadge}>
                 <MaterialCommunityIcons name="robot-happy" size={40} color={colors.brand} />
               </View>
-              <Text style={styles.emptyTitle}>Ask me anything about stocks</Text>
-              <Text style={styles.emptyText}>
-                I explain investing in plain English. Try one of these:
-              </Text>
+              <Text style={styles.emptyTitle}>{t("tutor.askAnything")}</Text>
+              <Text style={styles.emptyText}>{t("tutor.intro")}</Text>
               <View style={{ gap: spacing.sm, marginTop: spacing.lg, width: "100%" }}>
                 {SUGGESTIONS.map((s) => (
                   <Pressable
@@ -181,13 +181,13 @@ export default function TutorScreen() {
             style={[styles.limitBar, { paddingBottom: insets.bottom + spacing.md }]}
           >
             <MaterialCommunityIcons name="crown" size={20} color={colors.onAmber} />
-            <Text style={styles.limitText}>Daily limit reached — Upgrade to Pro for unlimited chat</Text>
+            <Text style={styles.limitText}>{t("tutor.limit")}</Text>
           </Pressable>
         ) : (
           <View style={[styles.inputBar, { paddingBottom: insets.bottom + spacing.sm }]}>
             <TextInput
               testID="chat-input"
-              placeholder="Ask about stocks…"
+              placeholder={t("tutor.placeholder")}
               placeholderTextColor={colors.muted}
               value={input}
               onChangeText={setInput}

@@ -9,6 +9,7 @@ import { useFonts } from "expo-font";
 
 import { useIconFonts } from "@/src/hooks/use-icon-fonts";
 import { AuthProvider } from "@/src/context/AuthContext";
+import { I18nProvider } from "@/src/i18n/I18nContext";
 import { colors } from "@/src/theme/theme";
 
 LogBox.ignoreAllLogs(true);
@@ -36,19 +37,21 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.surface }}>
       <SafeAreaProvider>
-        <AuthProvider>
-          <StatusBar style="light" />
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: colors.surface },
-              animation: "slide_from_right",
-            }}
-          >
-            <Stack.Screen name="lesson/[id]" options={{ animation: "slide_from_bottom" }} />
-            <Stack.Screen name="paywall" options={{ animation: "slide_from_bottom", presentation: "modal" }} />
-          </Stack>
-        </AuthProvider>
+        <I18nProvider>
+          <AuthProvider>
+            <StatusBar style="light" />
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                contentStyle: { backgroundColor: colors.surface },
+                animation: "slide_from_right",
+              }}
+            >
+              <Stack.Screen name="lesson/[id]" options={{ animation: "slide_from_bottom" }} />
+              <Stack.Screen name="paywall" options={{ animation: "slide_from_bottom", presentation: "modal" }} />
+            </Stack>
+          </AuthProvider>
+        </I18nProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

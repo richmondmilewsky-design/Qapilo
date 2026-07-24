@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { apiRequest } from "@/src/api/client";
+import { useI18n } from "@/src/i18n/I18nContext";
 import { colors, fonts, radius, spacing } from "@/src/theme/theme";
 import { Loading } from "@/src/components/ui";
 
@@ -23,6 +24,7 @@ const MEDALS = ["#F59E0B", "#A1A1AA", "#B45309"];
 
 export default function LeaderboardScreen() {
   const insets = useSafeAreaInsets();
+  const { t } = useI18n();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -54,8 +56,8 @@ export default function LeaderboardScreen() {
   return (
     <View style={[styles.root, { paddingTop: insets.top + spacing.md }]}>
       <View style={styles.header}>
-        <Text style={styles.title}>Leaderboard</Text>
-        <Text style={styles.subtitle}>Top investors ranked by XP</Text>
+        <Text style={styles.title}>{t("leaderboard.title")}</Text>
+        <Text style={styles.subtitle}>{t("leaderboard.subtitle")}</Text>
       </View>
       <FlatList
         data={rows}
@@ -66,7 +68,7 @@ export default function LeaderboardScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand} />
         }
         ListEmptyComponent={
-          <Text style={styles.empty}>No rankings yet. Complete a lesson to get on the board!</Text>
+          <Text style={styles.empty}>{t("leaderboard.empty")}</Text>
         }
         renderItem={({ item }) => (
           <View
@@ -89,7 +91,7 @@ export default function LeaderboardScreen() {
             )}
             <View style={{ flex: 1 }}>
               <Text style={styles.name} numberOfLines={1}>
-                {item.name} {item.is_me ? "(You)" : ""}
+                {item.name} {item.is_me ? `(${t("leaderboard.you")})` : ""}
               </Text>
               <Text style={styles.meta}>
                 Level {item.level} · {item.streak}🔥

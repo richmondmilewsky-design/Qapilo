@@ -17,6 +17,7 @@ from dotenv import load_dotenv
 
 from content import UNITS, LESSON_MAP, LESSON_ORDER, BADGES, BADGE_MAP
 from stocks import STOCKS, STOCK_MAP, CATEGORIES, fallback_quote, fallback_history
+from content_i18n import UNIT_T, LESSON_T, STOCK_T, norm_lang
 from emergentintegrations.llm.chat import LlmChat, UserMessage
 
 ROOT_DIR = Path(__file__).parent
@@ -96,6 +97,39 @@ def xp_into_level(xp: int) -> dict:
 
 def today_str() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+
+LANG_NAMES = {"en": "English", "de": "German (Deutsch)", "es": "Spanish (Español)"}
+
+
+def loc_unit(u: dict, lang: str) -> dict:
+    t = UNIT_T.get(lang, {}).get(u["id"])
+    if t:
+        return {"title": t["title"], "subtitle": t["subtitle"]}
+    return {"title": u["title"], "subtitle": u["subtitle"]}
+
+
+def loc_lesson_title(lesson_id: str, default: str, lang: str) -> str:
+    t = LESSON_T.get(lang, {}).get(lesson_id)
+    return t["title"] if t else default
+
+
+def loc_lesson_full(l: dict, lang: str) -> dict:
+    """Return localized title, cards and questions. Answer indices come from the
+    English source (l) so translated option order must match."""
+    t = LESSON_T.get(lang, {}).get(l["id"])
+    if not t:
+        return {"title": l["title"], "cards": l["cards"], "questions": l["questions"]}
+    questions = []
+    for i, q in enumerate(l["questions"]):
+        tq = t["questions"][i]
+        questions.append({"q": tq["q"], "options": tq["options"],
+                          "answer": q["answer"], "explain": tq["explain"]})
+    return {"title": t["title"], "cards": t["cards"], "questions": questions}
+
+
+def loc_stock_explain(symbol: str, default: str, lang: str) -> str:
+    return STOCK_T.get(lang, {}).get(symbol, default)
 
 
 def _parse_dt(v):
@@ -311,27 +345,30 @@ async def accept_terms(user: dict = Depends(get_current_user)):
 
 # ----------------------------- Curriculum -----------------------------
 @api.get("/curriculum")
-async def curriculum(user: dict = Depends(get_current_user)):
+async def curriculum(lang: str = "en", user: dict = Depends(get_current_user)):
+    lang = norm_lang(lang)
     completed = set(user.get("completed_lessons", []))
     is_pro = compute_pro(user)["is_pro"]
     units_out = []
     prev_done = True  # first lesson always unlocked
     for u in UNITS:
         unit_pro = u["id"] in PRO_UNITS
+        ut = loc_unit(u, lang)
         lessons_out = []
         for l in u["lessons"]:
             is_done = l["id"] in completed
             pro_locked = unit_pro and not is_pro
             unlocked = (prev_done or is_done) and not pro_locked
             lessons_out.append({
-                "id": l["id"], "title": l["title"], "icon": l["icon"], "xp": l["xp"],
+                "id": l["id"], "title": loc_lesson_title(l["id"], l["title"], lang),
+                "icon": l["icon"], "xp": l["xp"],
                 "completed": is_done, "unlocked": unlocked,
                 "pro_locked": pro_locked,
                 "perfect": l["id"] in set(user.get("perfect_lessons", [])),
             })
             prev_done = is_done
         units_out.append({
-            "id": u["id"], "title": u["title"], "subtitle": u["subtitle"],
+            "id": u["id"], "title": ut["title"], "subtitle": ut["subtitle"],
             "color": u["color"], "lessons": lessons_out, "pro": unit_pro,
         })
     total = len(LESSON_ORDER)
@@ -344,16 +381,17 @@ async def curriculum(user: dict = Depends(get_current_user)):
 
 
 @api.get("/lessons/{lesson_id}")
-async def get_lesson(lesson_id: str, user: dict = Depends(get_current_user)):
+async def get_lesson(lesson_id: str, lang: str = "en", user: dict = Depends(get_current_user)):
     l = LESSON_MAP.get(lesson_id)
     if not l:
         raise HTTPException(status_code=404, detail="Lesson not found")
     if l["unit_id"] in PRO_UNITS and not compute_pro(user)["is_pro"]:
         raise HTTPException(status_code=403, detail="This lesson requires TradeQuest Pro")
+    loc = loc_lesson_full(l, norm_lang(lang))
     return {
-        "id": l["id"], "title": l["title"], "icon": l["icon"], "xp": l["xp"],
+        "id": l["id"], "title": loc["title"], "icon": l["icon"], "xp": l["xp"],
         "unit_title": l["unit_title"], "unit_color": l["unit_color"],
-        "cards": l["cards"], "questions": l["questions"],
+        "cards": loc["cards"], "questions": loc["questions"],
     }
 
 
@@ -531,7 +569,8 @@ async def av_quote(symbol: str):
 
 @api.get("/stocks")
 async def list_stocks(category: Optional[str] = None, q: Optional[str] = None,
-                      user: dict = Depends(get_current_user)):
+                      lang: str = "en", user: dict = Depends(get_current_user)):
+    lang = norm_lang(lang)
     items = STOCKS
     if category and category != "All":
         items = [s for s in items if s["category"] == category]
@@ -547,13 +586,13 @@ async def list_stocks(category: Optional[str] = None, q: Optional[str] = None,
         out.append({
             "symbol": s["symbol"], "name": s["name"], "category": s["category"],
             "logo": f"https://logo.clearbit.com/{s['domain']}",
-            "explain": s["explain"], **quote,
+            "explain": loc_stock_explain(s["symbol"], s["explain"], lang), **quote,
         })
     return {"stocks": out, "categories": CATEGORIES}
 
 
 @api.get("/stocks/{symbol}")
-async def stock_detail(symbol: str, user: dict = Depends(get_current_user)):
+async def stock_detail(symbol: str, lang: str = "en", user: dict = Depends(get_current_user)):
     s = STOCK_MAP.get(symbol.upper())
     if not s:
         raise HTTPException(status_code=404, detail="Stock not found")
@@ -561,7 +600,7 @@ async def stock_detail(symbol: str, user: dict = Depends(get_current_user)):
     return {
         "symbol": s["symbol"], "name": s["name"], "category": s["category"],
         "logo": f"https://logo.clearbit.com/{s['domain']}",
-        "explain": s["explain"],
+        "explain": loc_stock_explain(s["symbol"], s["explain"], norm_lang(lang)),
         "history": fallback_history(s["symbol"]),
         **quote,
     }
@@ -570,6 +609,7 @@ async def stock_detail(symbol: str, user: dict = Depends(get_current_user)):
 # ----------------------------- AI Tutor (Claude Sonnet 4.6) -----------------------------
 class ChatBody(BaseModel):
     message: str
+    lang: Optional[str] = "en"
 
 
 TUTOR_SYSTEM = (
@@ -640,7 +680,7 @@ async def tutor_chat(body: ChatBody, user: dict = Depends(get_current_user)):
     chat = LlmChat(
         api_key=EMERGENT_LLM_KEY,
         session_id=f"tutor_{user['user_id']}",
-        system_message=TUTOR_SYSTEM,
+        system_message=TUTOR_SYSTEM + f"\n\nAlways reply in {LANG_NAMES.get(norm_lang(body.lang), 'English')}.",
     ).with_model("anthropic", CLAUDE_MODEL)
 
     try:

@@ -3,6 +3,14 @@ import { storage } from "@/src/utils/storage";
 const BASE = process.env.EXPO_PUBLIC_BACKEND_URL;
 const TOKEN_KEY = "tq_token";
 
+let currentLang = "en";
+export function setApiLang(lang: string) {
+  currentLang = lang || "en";
+}
+export function getApiLang() {
+  return currentLang;
+}
+
 export async function getToken(): Promise<string> {
   return (await storage.secureGet(TOKEN_KEY, "")) || "";
 }
@@ -21,7 +29,11 @@ export async function apiRequest<T = any>(path: string, opts: Opts = {}): Promis
     const t = await getToken();
     if (t) headers.Authorization = `Bearer ${t}`;
   }
-  const res = await fetch(`${BASE}/api${path}`, {
+  let url = `${BASE}/api${path}`;
+  if (method === "GET") {
+    url += (path.includes("?") ? "&" : "?") + `lang=${currentLang}`;
+  }
+  const res = await fetch(url, {
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,

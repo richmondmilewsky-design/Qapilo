@@ -7,6 +7,7 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "@/src/context/AuthContext";
 import { apiRequest } from "@/src/api/client";
+import { useI18n } from "@/src/i18n/I18nContext";
 import { colors, fonts, radius, spacing, BADGE_ICONS } from "@/src/theme/theme";
 import { Loading } from "@/src/components/ui";
 
@@ -19,6 +20,7 @@ export default function ProfileScreen() {
   const { user, logout, refresh } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { t, locale, openPicker } = useI18n();
   const [badges, setBadges] = useState<Badge[]>([]);
   const [total, setTotal] = useState(15);
   const [loading, setLoading] = useState(true);
@@ -56,10 +58,10 @@ export default function ProfileScreen() {
 
   const earnedCount = badges.filter((b) => b.earned).length;
   const stats = [
-    { icon: "flash", label: "TOTAL XP", value: user.xp, color: colors.brand },
-    { icon: "fire", label: "STREAK", value: user.streak, color: colors.amber },
-    { icon: "trending-up", label: "LEVEL", value: user.level, color: colors.brand },
-    { icon: "check-circle", label: "LESSONS", value: `${user.completed_lessons.length}/${total}`, color: colors.brand },
+    { icon: "flash", label: t("profile.totalXp"), value: user.xp, color: colors.brand },
+    { icon: "fire", label: t("profile.streak"), value: user.streak, color: colors.amber },
+    { icon: "trending-up", label: t("profile.levelStat"), value: user.level, color: colors.brand },
+    { icon: "check-circle", label: t("profile.lessons"), value: `${user.completed_lessons.length}/${total}`, color: colors.brand },
   ];
 
   return (
@@ -106,16 +108,16 @@ export default function ProfileScreen() {
                 <Text style={styles.proBannerTitle}>
                   {user.is_pro
                     ? user.pro_source === "subscription"
-                      ? "TradeQuest Pro"
-                      : "Pro Trial Active"
-                    : "Unlock TradeQuest Pro"}
+                      ? t("profile.pro")
+                      : t("profile.proTrial")
+                    : t("profile.unlock")}
                 </Text>
                 <Text style={styles.proBannerSub}>
                   {user.is_pro
                     ? user.pro_source === "subscription"
-                      ? "Unlimited access · thank you!"
-                      : `${user.trial_days_left} day${user.trial_days_left === 1 ? "" : "s"} of free Pro left`
-                    : "Unlimited AI Tutor + advanced lessons"}
+                      ? t("profile.unlimited")
+                      : `${user.trial_days_left} ${user.trial_days_left === 1 ? t("learn.day") : t("learn.days")} ${t("profile.trialLeftSuffix")}`
+                    : t("profile.proSub")}
                 </Text>
               </View>
             </View>
@@ -124,9 +126,9 @@ export default function ProfileScreen() {
 
           <View style={styles.levelCard}>
             <View style={styles.levelHeaderRow}>
-              <Text style={styles.levelText}>Level {user.level}</Text>
+              <Text style={styles.levelText}>{t("profile.level")} {user.level}</Text>
               <Text style={styles.levelSub}>
-                {user.level_current}/{user.level_needed} XP to level {user.level + 1}
+                {user.level_current}/{user.level_needed} {t("profile.toLevel")} {user.level + 1}
               </Text>
             </View>
             <View style={styles.xpBarBg}>
@@ -147,7 +149,7 @@ export default function ProfileScreen() {
 
           {/* Badges */}
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>Badges</Text>
+            <Text style={styles.sectionTitle}>{t("profile.badges")}</Text>
             <Text style={styles.sectionCount}>{earnedCount}/{badges.length}</Text>
           </View>
           <View style={styles.badgeGrid}>
@@ -167,15 +169,22 @@ export default function ProfileScreen() {
             ))}
           </View>
 
-          <Pressable testID="disclaimer-link" onPress={() => router.push("/disclaimer")} style={styles.linkRow}>
+          <Pressable testID="language-row" onPress={openPicker} style={[styles.linkRow, { marginTop: spacing.xxl }]}>
+            <Ionicons name="globe-outline" size={20} color={colors.onSurfaceSecondary} />
+            <Text style={styles.linkText}>{t("profile.language")}</Text>
+            <Text style={styles.langValue}>{locale.toUpperCase()}</Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+          </Pressable>
+
+          <Pressable testID="disclaimer-link" onPress={() => router.push("/disclaimer")} style={[styles.linkRow, { marginTop: spacing.md }]}>
             <Ionicons name="document-text-outline" size={20} color={colors.onSurfaceSecondary} />
-            <Text style={styles.linkText}>Disclaimer &amp; Terms</Text>
+            <Text style={styles.linkText}>{t("profile.disclaimer")}</Text>
             <Ionicons name="chevron-forward" size={18} color={colors.muted} />
           </Pressable>
 
           <Pressable testID="logout-button" onPress={doLogout} style={styles.logout}>
             <Ionicons name="log-out-outline" size={20} color={colors.error} />
-            <Text style={styles.logoutText}>Log Out</Text>
+            <Text style={styles.logoutText}>{t("profile.logout")}</Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -290,5 +299,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceSecondary,
   },
   linkText: { flex: 1, fontFamily: fonts.bodyMed, fontSize: 15, color: colors.onSurface },
+  langValue: { fontFamily: fonts.bodySemi, fontSize: 13, color: colors.brand, marginRight: spacing.xs },
   logoutText: { fontFamily: fonts.bodySemi, fontSize: 15, color: colors.error },
 });

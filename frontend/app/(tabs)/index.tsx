@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -15,6 +15,8 @@ import * as Haptics from "expo-haptics";
 import { useAuth } from "@/src/context/AuthContext";
 import { apiRequest } from "@/src/api/client";
 import { storage } from "@/src/utils/storage";
+import { useI18n } from "@/src/i18n/I18nContext";
+import { LanguageButton } from "@/src/components/LanguageButton";
 import { colors, fonts, radius, spacing, LESSON_ICONS } from "@/src/theme/theme";
 import { Loading } from "@/src/components/ui";
 
@@ -36,6 +38,7 @@ export default function LearnScreen() {
   const { user, refresh } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { t, locale } = useI18n();
   const [units, setUnits] = useState<Unit[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -72,6 +75,10 @@ export default function LearnScreen() {
     setRefreshing(false);
   };
 
+  useEffect(() => {
+    load();
+  }, [locale, load]);
+
   if (loading || !user) return <Loading testID="learn-loading" />;
 
   const dailyPct = Math.min(100, Math.round((user.daily_xp / user.daily_goal) * 100));
@@ -88,7 +95,7 @@ export default function LearnScreen() {
             <Text style={styles.statChipText}>{user.streak}</Text>
           </View>
           <View style={styles.levelWrap}>
-            <Text style={styles.levelLabel}>LEVEL {user.level}</Text>
+            <Text style={styles.levelLabel}>{t("learn.level")} {user.level}</Text>
             <View style={styles.xpBarBg}>
               <View style={[styles.xpBarFill, { width: `${(user.level_current / user.level_needed) * 100}%` }]} />
             </View>
@@ -97,13 +104,14 @@ export default function LearnScreen() {
             <MaterialCommunityIcons name="flash" size={18} color={colors.brand} />
             <Text style={styles.statChipText}>{user.xp}</Text>
           </View>
+          <LanguageButton />
         </View>
         <View style={styles.dailyRow}>
           <Text style={styles.dailyText}>
-            Daily goal · {user.daily_xp}/{user.daily_goal} XP
+            {t("learn.dailyGoal")} · {user.daily_xp}/{user.daily_goal} XP
           </Text>
           <Text style={[styles.dailyText, { color: dailyPct >= 100 ? colors.brand : colors.muted }]}>
-            {dailyPct >= 100 ? "Complete!" : `${dailyPct}%`}
+            {dailyPct >= 100 ? t("learn.complete") : `${dailyPct}%`}
           </Text>
         </View>
       </BlurView>
@@ -129,9 +137,10 @@ export default function LearnScreen() {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.nudgeTitle}>
-                Your Pro trial ends in {user.trial_days_left} day{user.trial_days_left === 1 ? "" : "s"}
+                {t("learn.trialEnds")} {user.trial_days_left}{" "}
+                {user.trial_days_left === 1 ? t("learn.day") : t("learn.days")}
               </Text>
-              <Text style={styles.nudgeSub}>Keep unlimited AI Tutor & advanced lessons →</Text>
+              <Text style={styles.nudgeSub}>{t("learn.keepPro")}</Text>
             </View>
             <Pressable
               testID="trial-nudge-dismiss"
@@ -201,6 +210,7 @@ function Node({
   const iconName = (LESSON_ICONS[lesson.icon] || "book-open-variant") as any;
   const size = isCurrent ? 92 : 74;
   const proLocked = !lesson.unlocked && lesson.pro_locked;
+  const { t } = useI18n();
   const bg = lesson.completed ? color : lesson.unlocked ? colors.surfaceTertiary : colors.surfaceSecondary;
   const iconColor = lesson.completed ? colors.onBrand : lesson.unlocked ? colors.onSurface : colors.muted;
 
@@ -208,13 +218,13 @@ function Node({
     <View style={[styles.nodeWrap, { transform: [{ translateX: offset }] }]}>
       {isCurrent && (
         <Pressable onPress={onPress} style={styles.startPill} testID="current-lesson-pill">
-          <Text style={styles.startPillText}>START</Text>
+          <Text style={styles.startPillText}>{t("learn.start")}</Text>
         </Pressable>
       )}
       {proLocked && (
         <Pressable onPress={onPress} style={styles.proNodePill} testID={`pro-pill-${lesson.id}`}>
           <MaterialCommunityIcons name="crown" size={11} color={colors.onAmber} />
-          <Text style={styles.startPillText}>PRO</Text>
+          <Text style={styles.startPillText}>{t("learn.pro")}</Text>
         </Pressable>
       )}
       <Pressable

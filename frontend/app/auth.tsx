@@ -16,6 +16,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "@/src/context/AuthContext";
+import { useI18n } from "@/src/i18n/I18nContext";
+import { LanguageButton } from "@/src/components/LanguageButton";
 import { PrimaryButton } from "@/src/components/ui";
 import { colors, fonts, radius, spacing } from "@/src/theme/theme";
 
@@ -23,6 +25,7 @@ export default function AuthScreen() {
   const { login, signup, loginWithGoogle } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { t } = useI18n();
 
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [name, setName] = useState("");
@@ -78,16 +81,19 @@ export default function AuthScreen() {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
+            <View style={styles.langTop}>
+              <LanguageButton />
+            </View>
             <View style={styles.logoWrap}>
               <View style={styles.logoBadge}>
                 <MaterialCommunityIcons name="chart-line-variant" size={34} color={colors.onBrand} />
               </View>
               <Text style={styles.brand}>TRADEQUEST</Text>
-              <Text style={styles.tagline}>Master the stock market, one lesson at a time.</Text>
+              <Text style={styles.tagline}>{t("auth.tagline")}</Text>
             </View>
 
             <Text style={styles.h1} testID="auth-heading">
-              {mode === "login" ? "Welcome back" : "Create your account"}
+              {mode === "login" ? t("auth.welcomeBack") : t("auth.createAccount")}
             </Text>
 
             <Pressable
@@ -98,20 +104,20 @@ export default function AuthScreen() {
             >
               <Ionicons name="logo-google" size={20} color={colors.onSurface} />
               <Text style={styles.googleText}>
-                {gLoading ? "Connecting…" : "Continue with Google"}
+                {gLoading ? "…" : t("auth.google")}
               </Text>
             </Pressable>
 
             <View style={styles.divider}>
               <View style={styles.line} />
-              <Text style={styles.dividerText}>or</Text>
+              <Text style={styles.dividerText}>{t("auth.or")}</Text>
               <View style={styles.line} />
             </View>
 
             {mode === "signup" && (
               <TextInput
                 testID="name-input"
-                placeholder="Name"
+                placeholder={t("auth.name")}
                 placeholderTextColor={colors.muted}
                 value={name}
                 onChangeText={setName}
@@ -121,7 +127,7 @@ export default function AuthScreen() {
             )}
             <TextInput
               testID="email-input"
-              placeholder="Email"
+              placeholder={t("auth.email")}
               placeholderTextColor={colors.muted}
               value={email}
               onChangeText={setEmail}
@@ -132,7 +138,7 @@ export default function AuthScreen() {
             />
             <TextInput
               testID="password-input"
-              placeholder="Password"
+              placeholder={t("auth.password")}
               placeholderTextColor={colors.muted}
               value={password}
               onChangeText={setPassword}
@@ -148,7 +154,7 @@ export default function AuthScreen() {
 
             <PrimaryButton
               testID="auth-submit-button"
-              label={mode === "login" ? "Log In" : "Sign Up"}
+              label={mode === "login" ? t("auth.login") : t("auth.signup")}
               onPress={submit}
               loading={loading}
               style={{ marginTop: spacing.md }}
@@ -163,23 +169,23 @@ export default function AuthScreen() {
               style={styles.toggle}
             >
               <Text style={styles.toggleText}>
-                {mode === "login" ? "New here? " : "Already have an account? "}
+                {mode === "login" ? t("auth.newHere") : t("auth.haveAccount")}
                 <Text style={styles.toggleLink}>
-                  {mode === "login" ? "Create an account" : "Log in"}
+                  {mode === "login" ? t("auth.createOne") : t("auth.loginLink")}
                 </Text>
               </Text>
             </Pressable>
 
             <Text style={styles.terms}>
-              By continuing you agree to our{" "}
+              {t("auth.terms")}
               <Text
                 testID="auth-disclaimer-link"
                 style={styles.toggleLink}
                 onPress={() => router.push("/disclaimer")}
               >
-                Disclaimer &amp; Terms
+                {t("auth.termsLink")}
               </Text>
-              . Educational use only — not financial advice.
+              {t("auth.termsEnd")}
             </Text>
           </ScrollView>
         </TouchableWithoutFeedback>
@@ -192,6 +198,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
   scroll: { paddingHorizontal: spacing.xl },
   logoWrap: { alignItems: "center", marginBottom: spacing.xxl },
+  langTop: { alignItems: "flex-end", marginBottom: spacing.sm },
   logoBadge: {
     width: 72,
     height: 72,

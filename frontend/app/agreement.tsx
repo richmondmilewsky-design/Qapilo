@@ -5,15 +5,17 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useAuth } from "@/src/context/AuthContext";
+import { useI18n } from "@/src/i18n/I18nContext";
 import { apiRequest } from "@/src/api/client";
 import { PrimaryButton } from "@/src/components/ui";
-import { DISCLAIMER_INTRO, DISCLAIMER_SECTIONS } from "@/src/constants/disclaimer";
+import { DISCLAIMER_SECTIONS } from "@/src/constants/disclaimer";
 import { colors, fonts, radius, spacing } from "@/src/theme/theme";
 
 export default function Agreement() {
   const { setUser, logout } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { t } = useI18n();
   const [checked, setChecked] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -41,8 +43,8 @@ export default function Agreement() {
         <View style={styles.badge}>
           <MaterialCommunityIcons name="scale-balance" size={26} color={colors.onBrand} />
         </View>
-        <Text style={styles.title}>Disclaimer & Terms</Text>
-        <Text style={styles.intro}>{DISCLAIMER_INTRO}</Text>
+        <Text style={styles.title}>{t("agree.title")}</Text>
+        <Text style={styles.intro}>{t("agree.intro")}</Text>
       </View>
 
       <ScrollView
@@ -68,18 +70,18 @@ export default function Agreement() {
             {checked && <Ionicons name="checkmark" size={16} color={colors.onBrand} />}
           </View>
           <Text style={styles.checkLabel}>
-            I have read, understood and agree to the Disclaimer & Terms above.
+            {t("agree.checkbox")}
           </Text>
         </Pressable>
         <PrimaryButton
           testID="agree-continue-button"
-          label="Agree & Continue"
+          label={t("agree.continue")}
           onPress={agree}
           disabled={!checked}
           loading={busy}
         />
         <Pressable testID="decline-button" onPress={decline} style={styles.decline}>
-          <Text style={styles.declineText}>Decline and log out</Text>
+          <Text style={styles.declineText}>{t("agree.decline")}</Text>
         </Pressable>
       </View>
     </View>

@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -14,6 +14,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { apiRequest } from "@/src/api/client";
+import { useI18n } from "@/src/i18n/I18nContext";
+import { LanguageButton } from "@/src/components/LanguageButton";
 import { colors, fonts, radius, spacing } from "@/src/theme/theme";
 import { Loading } from "@/src/components/ui";
 
@@ -34,6 +36,7 @@ const CATEGORIES = ["All", "Tech", "Auto", "Finance", "Retail", "Media", "ETF"];
 export default function ExploreScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { t, locale } = useI18n();
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [category, setCategory] = useState("All");
   const [query, setQuery] = useState("");
@@ -57,6 +60,12 @@ export default function ExploreScreen() {
     }, [load, category])
   );
 
+  useEffect(() => {
+    setLoading(true);
+    load(category).then(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locale]);
+
   const onRefresh = async () => {
     setRefreshing(true);
     await load(category);
@@ -72,14 +81,19 @@ export default function ExploreScreen() {
   return (
     <View style={[styles.root, { paddingTop: insets.top + spacing.md }]}>
       <View style={styles.headerBlock}>
-        <Text style={styles.title}>Explore Stocks</Text>
-        <Text style={styles.subtitle}>Real companies, explained simply</Text>
+        <View style={styles.titleRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.title}>{t("explore.title")}</Text>
+            <Text style={styles.subtitle}>{t("explore.subtitle")}</Text>
+          </View>
+          <LanguageButton />
+        </View>
 
         <View style={styles.searchBar}>
           <Ionicons name="search" size={18} color={colors.muted} />
           <TextInput
             testID="stock-search-input"
-            placeholder="Search ticker or company"
+            placeholder={t("explore.search")}
             placeholderTextColor={colors.muted}
             value={query}
             onChangeText={setQuery}
@@ -128,7 +142,7 @@ export default function ExploreScreen() {
           ListEmptyComponent={
             <View style={styles.empty}>
               <Ionicons name="search" size={40} color={colors.muted} />
-              <Text style={styles.emptyText}>No stocks found. Try another search.</Text>
+              <Text style={styles.emptyText}>{t("explore.empty")}</Text>
             </View>
           }
           renderItem={({ item }) => {
@@ -172,6 +186,7 @@ export default function ExploreScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
   headerBlock: { paddingHorizontal: spacing.lg },
+  titleRow: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
   title: { fontFamily: fonts.display, fontSize: 30, color: colors.onSurface },
   subtitle: { fontFamily: fonts.body, fontSize: 14, color: colors.muted, marginTop: 2 },
   searchBar: {

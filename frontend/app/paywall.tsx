@@ -9,6 +9,7 @@ import * as Linking from "expo-linking";
 import * as Haptics from "expo-haptics";
 import { apiRequest } from "@/src/api/client";
 import { useAuth } from "@/src/context/AuthContext";
+import { useI18n } from "@/src/i18n/I18nContext";
 import { PrimaryButton, Loading } from "@/src/components/ui";
 import { colors, fonts, radius, spacing } from "@/src/theme/theme";
 
@@ -30,6 +31,7 @@ export default function Paywall() {
   const { refresh, setUser } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { t } = useI18n();
   const [plan, setPlan] = useState<Plan | null>(null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
@@ -134,14 +136,15 @@ export default function Paywall() {
         <View style={styles.crown}>
           <MaterialCommunityIcons name="crown" size={40} color={colors.onAmber} />
         </View>
-        <Text style={styles.title}>TradeQuest Pro</Text>
-        <Text style={styles.subtitle}>Go deeper, learn faster, ask anything.</Text>
+        <Text style={styles.title}>{t("paywall.title")}</Text>
+        <Text style={styles.subtitle}>{t("paywall.subtitle")}</Text>
 
         {plan.in_trial && (
           <View testID="trial-banner" style={styles.trialBanner}>
             <MaterialCommunityIcons name="gift" size={18} color={colors.brand} />
             <Text style={styles.trialText}>
-              You&apos;re on a free trial — {plan.trial_days_left} day{plan.trial_days_left === 1 ? "" : "s"} left
+              {t("paywall.trialLeft")} {plan.trial_days_left}{" "}
+              {plan.trial_days_left === 1 ? t("learn.day") : t("learn.days")} {t("paywall.left")}
             </Text>
           </View>
         )}
@@ -159,10 +162,10 @@ export default function Paywall() {
 
         <View style={styles.priceRow}>
           <Text style={styles.price}>${plan.price}</Text>
-          <Text style={styles.per}>/month</Text>
+          <Text style={styles.per}>{t("paywall.perMonth")}</Text>
         </View>
         <Text style={styles.trialNote}>
-          {plan.trial_days}-day free trial · cancel anytime
+          {plan.trial_days}-{t("paywall.trialNote")}
         </Text>
 
         {note ? <Text style={styles.note} testID="paywall-note">{note}</Text> : null}
@@ -172,19 +175,19 @@ export default function Paywall() {
             <View style={styles.activeBadge} testID="pro-active-badge">
               <MaterialCommunityIcons name="check-decagram" size={20} color={colors.brand} />
               <Text style={styles.activeText}>
-                {isSubscriber ? "You're a Pro subscriber" : "Pro unlocked via free trial"}
+                {isSubscriber ? t("paywall.subscriber") : t("paywall.trialUnlocked")}
               </Text>
             </View>
             {isSubscriber && (
               <Pressable testID="cancel-sub-button" onPress={manageCancel} disabled={busy} style={styles.cancelBtn}>
-                <Text style={styles.cancelText}>{busy ? "Working…" : "Cancel subscription"}</Text>
+                <Text style={styles.cancelText}>{busy ? "…" : t("paywall.cancel")}</Text>
               </Pressable>
             )}
           </View>
         ) : plan.paypal_configured ? (
           <PrimaryButton
             testID="subscribe-button"
-            label="Subscribe with PayPal"
+            label={t("paywall.subscribe")}
             variant="amber"
             loading={busy}
             onPress={subscribe}
@@ -192,20 +195,16 @@ export default function Paywall() {
         ) : (
           <View style={styles.soon} testID="payments-not-configured">
             <Ionicons name="time-outline" size={18} color={colors.muted} />
-            <Text style={styles.soonText}>
-              PayPal checkout activates once the app owner adds payment keys. Your free trial is active now.
-            </Text>
+            <Text style={styles.soonText}>{t("paywall.notConfigured")}</Text>
           </View>
         )}
 
         <Pressable testID="restore-sub-button" onPress={restore} disabled={busy} style={styles.restore}>
           <Ionicons name="refresh" size={16} color={colors.onSurfaceSecondary} />
-          <Text style={styles.restoreText}>Restore / Refresh subscription</Text>
+          <Text style={styles.restoreText}>{t("paywall.restore")}</Text>
         </Pressable>
 
-        <Text style={styles.legal}>
-          Billed monthly via PayPal after the free trial. Educational content only — not financial advice.
-        </Text>
+        <Text style={styles.legal}>{t("paywall.legal")}</Text>
       </ScrollView>
     </View>
   );
