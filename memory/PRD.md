@@ -45,6 +45,9 @@ Build a Duolingo-style app for learning Stocks — lessons, XP, streaks, basic s
 ## Test Credentials
 See `/app/memory/test_credentials.md` (demo@tradequest.app / demo123).
 
+## Implemented — Iteration 5 (2026-06): Watchlist
+- **Watchlist:** users can star favorite stocks (star toggle on Explore cards + stock detail top bar). Watchlisted stocks are pinned to the top of the Explorer under a "Watchlist" section (rest under "All Stocks"). Stored as `user.watchlist` array. Endpoint: `POST /api/watchlist/{symbol}/toggle`; `in_watchlist` flag added to `/api/stocks` and `/api/stocks/{symbol}`. Localized (EN/DE/ES). ✅ 11/11 backend tests + frontend E2E pass.
+
 ## Notes
 - Live stock quotes come from **Finnhub** (FINNHUB_API_KEY set; free tier 60 calls/min). Both the Stocks list and detail screens show live prices with a 45s TTL cache. Price charts use a deterministic simulated history since Finnhub's free tier excludes candle data. Falls back to simulated quotes if the key is unset/request fails.
 - Google OAuth cannot be automated in tests (Emergent-managed).

@@ -68,7 +68,7 @@ export default function StockDetail() {
           <Ionicons name="chevron-back" size={26} color={colors.onSurface} />
         </Pressable>
         <Text style={styles.topTitle}>{data.symbol}</Text>
-        <Pressable testID={`watch-toggle-${data.symbol}`} onPress={toggleWatch} hitSlop={12}>
+        <Pressable testID={`watch-toggle-detail-${data.symbol}`} onPress={toggleWatch} hitSlop={12}>
           <Ionicons
             name={data.in_watchlist ? "star" : "star-outline"}
             size={24}
