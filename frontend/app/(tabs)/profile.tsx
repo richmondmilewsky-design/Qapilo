@@ -93,6 +93,35 @@ export default function ProfileScreen() {
 
         {/* Level progress */}
         <View style={styles.section}>
+          <Pressable
+            testID="pro-banner"
+            onPress={() => router.push("/paywall")}
+            style={styles.proBanner}
+          >
+            <View style={styles.proBannerLeft}>
+              <View style={styles.proCrown}>
+                <MaterialCommunityIcons name="crown" size={22} color={colors.onAmber} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.proBannerTitle}>
+                  {user.is_pro
+                    ? user.pro_source === "subscription"
+                      ? "TradeQuest Pro"
+                      : "Pro Trial Active"
+                    : "Unlock TradeQuest Pro"}
+                </Text>
+                <Text style={styles.proBannerSub}>
+                  {user.is_pro
+                    ? user.pro_source === "subscription"
+                      ? "Unlimited access · thank you!"
+                      : `${user.trial_days_left} day${user.trial_days_left === 1 ? "" : "s"} of free Pro left`
+                    : "Unlimited AI Tutor + advanced lessons"}
+                </Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.muted} />
+          </Pressable>
+
           <View style={styles.levelCard}>
             <View style={styles.levelHeaderRow}>
               <Text style={styles.levelText}>Level {user.level}</Text>
@@ -167,6 +196,28 @@ const styles = StyleSheet.create({
   name: { fontFamily: fonts.display, fontSize: 28, color: colors.onSurface, marginTop: spacing.md },
   email: { fontFamily: fonts.body, fontSize: 13, color: colors.muted, marginTop: 2 },
   section: { paddingHorizontal: spacing.lg },
+  proBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#1A1405",
+    borderWidth: 1,
+    borderColor: colors.amber,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  proBannerLeft: { flexDirection: "row", alignItems: "center", gap: spacing.md, flex: 1 },
+  proCrown: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.md,
+    backgroundColor: colors.amber,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  proBannerTitle: { fontFamily: fonts.display, fontSize: 18, color: colors.onSurface },
+  proBannerSub: { fontFamily: fonts.body, fontSize: 12, color: colors.onSurfaceSecondary, marginTop: 1 },
   levelCard: {
     backgroundColor: colors.surfaceSecondary,
     borderRadius: radius.lg,

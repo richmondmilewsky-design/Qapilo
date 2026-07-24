@@ -36,6 +36,13 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="tutor"
+        options={{
+          title: "AI Tutor",
+          tabBarIcon: ({ color, size }) => <Ionicons name="chatbubbles" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="leaderboard"
         options={{
           title: "Leaderboard",

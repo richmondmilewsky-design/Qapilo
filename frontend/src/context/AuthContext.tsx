@@ -21,6 +21,12 @@ export type User = {
   daily_xp: number;
   daily_goal: number;
   auth_provider: string;
+  is_pro: boolean;
+  pro_source: "trial" | "subscription" | "free";
+  in_trial: boolean;
+  trial_days_left: number;
+  trial_ends_at: string | null;
+  subscription_status: string | null;
 };
 
 type AuthCtx = {

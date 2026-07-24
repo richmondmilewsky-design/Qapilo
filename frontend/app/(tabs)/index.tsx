@@ -25,6 +25,7 @@ type Lesson = {
   completed: boolean;
   unlocked: boolean;
   perfect: boolean;
+  pro_locked: boolean;
 };
 type Unit = { id: string; title: string; subtitle: string; color: string; lessons: Lesson[] };
 
@@ -125,6 +126,11 @@ export default function LearnScreen() {
                   isCurrent={isCurrent}
                   onPress={() => {
                     if (!lesson.unlocked) {
+                      if (lesson.pro_locked) {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                        router.push("/paywall");
+                        return;
+                      }
                       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
                       return;
                     }
@@ -156,6 +162,7 @@ function Node({
 }) {
   const iconName = (LESSON_ICONS[lesson.icon] || "book-open-variant") as any;
   const size = isCurrent ? 92 : 74;
+  const proLocked = !lesson.unlocked && lesson.pro_locked;
   const bg = lesson.completed ? color : lesson.unlocked ? colors.surfaceTertiary : colors.surfaceSecondary;
   const iconColor = lesson.completed ? colors.onBrand : lesson.unlocked ? colors.onSurface : colors.muted;
 
@@ -164,6 +171,12 @@ function Node({
       {isCurrent && (
         <Pressable onPress={onPress} style={styles.startPill} testID="current-lesson-pill">
           <Text style={styles.startPillText}>START</Text>
+        </Pressable>
+      )}
+      {proLocked && (
+        <Pressable onPress={onPress} style={styles.proNodePill} testID={`pro-pill-${lesson.id}`}>
+          <MaterialCommunityIcons name="crown" size={11} color={colors.onAmber} />
+          <Text style={styles.startPillText}>PRO</Text>
         </Pressable>
       )}
       <Pressable
@@ -177,13 +190,15 @@ function Node({
             borderRadius: size / 2,
             backgroundColor: bg,
             borderWidth: isCurrent ? 3 : lesson.completed ? 0 : 2,
-            borderColor: isCurrent ? colors.amber : colors.border,
+            borderColor: isCurrent ? colors.amber : proLocked ? colors.amber : colors.border,
             transform: [{ scale: pressed && lesson.unlocked ? 0.94 : 1 }],
-            opacity: lesson.unlocked ? 1 : 0.55,
+            opacity: lesson.unlocked ? 1 : 0.65,
           },
         ]}
       >
-        {!lesson.unlocked ? (
+        {proLocked ? (
+          <MaterialCommunityIcons name="crown" size={size * 0.34} color={colors.amber} />
+        ) : !lesson.unlocked ? (
           <Ionicons name="lock-closed" size={size * 0.32} color={colors.muted} />
         ) : (
           <MaterialCommunityIcons name={iconName} size={size * 0.4} color={iconColor} />
@@ -283,6 +298,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   startPill: {
+    backgroundColor: colors.amber,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+    marginBottom: spacing.xs,
+  },
+  proNodePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
     backgroundColor: colors.amber,
     paddingHorizontal: spacing.md,
     paddingVertical: 4,

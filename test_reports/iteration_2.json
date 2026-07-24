@@ -1,0 +1,51 @@
+{
+  "summary": "TradeQuest iteration_2 — tested the new AI Tutor (Claude Sonnet 4.6), 7-day Pro trial + $4.99 monthly Pro plan, and PayPal graceful-unconfigured paths. Backend: 26/26 pytest cases pass (15 regression + 11 new). New tests cover: signup grants trial (is_pro=true, pro_source='trial', trial_days_left=7); GET /api/pro/plan returns price='4.99', trial_days=7, paypal_configured=false, features list; curriculum returns is_pro=true and units u4/u5 flagged pro:true with pro_locked=false for trial users; GET /api/lessons/l10 (unit u4) succeeds for trial user; GET /api/tutor/status returns is_pro=true, remaining=null, limit=null, configured=true; POST /api/tutor/chat with EMERGENT_LLM_KEY returns a real Claude reply (~1000 chars, beginner-friendly with markdown + emojis); empty message → 400; GET /api/tutor/history returns messages in [user, assistant] order; POST /api/subscription/create → 503 (PayPal not configured); GET /api/subscription/status → 200 with user (is_pro still true from trial); POST /api/subscription/cancel → 200 (sets pro_active=false, trial still keeps user Pro). Frontend (mobile viewport 390x844): fresh signup lands on tabs; bottom tab 'AI Tutor' present, header shows 'Quest AI Tutor' + 'Pro · Unlimited'; 4 suggestion chips render; sending 'What is a stock in simple terms?' produced a chat-msg-user bubble followed by a rich chat-msg-assistant bubble from Claude (1048 chars). Profile shows pro-banner with 'Pro Trial Active' + '7 days of free Pro left'; tapping opens /paywall which shows trial-banner ('You're on a free trial — 7 days left'), $4.99/month, feature list, and 'Pro unlocked via free trial' (pro-active-badge). paywall-close returns to Profile. NOTE: For trial users, the paywall shows pro-active-badge (correct — user IS already Pro); the 'payments-not-configured' notice only appears for non-pro users, which cannot be exercised without expiring the trial. This matches the code branch in paywall.tsx (alreadyPro ? pro-active-badge : paypal_configured ? subscribe-button : payments-not-configured).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "app/auth.tsx", "issue": "When backend returns a Pydantic 422 (e.g. password too short / missing name), setError(e.message) renders '[object Object],[object Object]' because FastAPI's 422 detail is an array of objects. Should stringify each object (or read err.detail[i].msg). Repro: on signup screen leave password empty or use <6 char password, then tap Sign Up. Reference: /app/frontend/app/auth.tsx:43 and the api client's error message construction.", "testID": "auth-error", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "app/auth.tsx", "issue": "Console warning: 'TouchableWithoutFeedback is deprecated. Please use Pressable.' — TouchableWithoutFeedback is used to dismiss keyboard on auth.tsx (line 72). Migrate to Pressable for future compatibility. Reference: /app/frontend/app/auth.tsx:72"},
+      {"component": "expo web renderer", "issue": "Console warning: 'props.pointerEvents is deprecated. Use style.pointerEvents' — non-blocking; likely from a lib (e.g. LinearGradient / react-native-web internal). No action required from app code."}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_tradequest.py",
+    "/app/backend/tests/test_new_features.py",
+    "/app/test_reports/pytest/pytest_results.xml",
+    "/app/test_reports/pytest/pytest_new_features.xml"
+  ],
+  "action_items": [
+    "Fix auth error rendering for FastAPI 422 responses in /app/frontend/app/auth.tsx (or the shared api client): coerce array-of-objects detail into a readable string (e.g. detail.map(d => d.msg).join(', '))",
+    "Optional: replace TouchableWithoutFeedback with Pressable in auth.tsx line 72 to silence deprecation warning",
+    "Not testable in this iteration (needs trial_ends_at manipulation): (a) 3/day free AI Tutor limit and (b) paywall's 'payments-not-configured' notice for a non-pro user. Consider adding an internal 'expire trial' hook or unit-tests that mock compute_pro to exercise these branches."
+  ],
+  "critical_code_review_comments": [
+    "server.py compute_pro correctly gives is_pro=True for both subscribers and in-trial users; pro_source and trial_days_left are derived from trial_ends_at.",
+    "tutor_chat requires EMERGENT_LLM_KEY and returns 503 when missing — good; also enforces 3/day free limit via chat_messages count by role='user' + day string — clean.",
+    "chat_messages inserts include a 'day' string, so tutor_used_today counts UTC-day rows — this correctly resets daily. Note it uses UTC and the client is likely in local time; acceptable for MVP.",
+    "PayPal-not-configured paths return 503 for create and skip PayPal calls in cancel/status — safe.",
+    "server.py is now ~870 lines and mixes auth/curriculum/stocks/tutor/paypal; consider splitting into routers as originally noted in iteration_1.",
+    "public_user excludes hashed_password and _id — confirmed no PII leaks.",
+    "In-trial users hit the paywall’s pro-active-badge branch, so 'payments-not-configured' is only reachable post-trial. Consider showing the payments-not-configured hint even for trial users (informative), or leave as-is if intentional."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_new_features.py (new)",
+    "/app/test_reports/iteration_2.json (new)"
+  ],
+  "success_rate": {
+    "backend": "100% (26/26)",
+    "frontend": "~95% (auth signup, AI Tutor chat with real Claude reply, Profile pro-banner, paywall trial view all verified on 390x844; the payments-not-configured branch and the 3/day free limit not exercised because a fresh user is always in trial)"
+  },
+  "seed_data_creation": "Signed up two ephemeral trial users (newtest_<hex>@tradequest.app for pytest, uitest_<ts>@tradequest.app for playwright). No prod data touched. demo@tradequest.app/demo123 already exists from iteration_1.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Bottom tab labels are Learn / Explore / AI Tutor / Leaderboard / Profile (5 tabs now). Signup form has 3 inputs in order: Name, Email, Password (fill all 3). Frontend uses EXPO_PUBLIC_BACKEND_URL (not EXPO_BACKEND_URL). PayPal keys still empty (expected). To test the 3/day free tutor limit or the paywall's 'payments-not-configured' notice, you must set trial_ends_at to a past ISO date in Mongo for the test user, then re-check /api/tutor/status and /api/pro/plan / paywall UI.",
+  "rca_of_issue": "Only issue found is a minor UI polish bug: FastAPI 422 detail (an array of {loc,msg,type} objects) is being coerced to a string via toString(), producing '[object Object],[object Object]' in the auth-error Text. Root cause is in the shared api error handling / setError path in auth.tsx. Mitigation: in the api client (or auth.tsx catch block), map detail array to msg strings and join with ', ' before passing to setError."
+}
