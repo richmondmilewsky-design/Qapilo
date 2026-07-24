@@ -11,7 +11,8 @@ export default function Index() {
 
   useEffect(() => {
     if (loading) return;
-    if (user) router.replace("/(tabs)");
+    if (user && !user.accepted_terms) router.replace("/agreement");
+    else if (user) router.replace("/(tabs)");
     else router.replace("/auth");
   }, [user, loading, router]);
 

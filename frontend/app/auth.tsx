@@ -38,7 +38,7 @@ export default function AuthScreen() {
     try {
       if (mode === "signup") await signup(email.trim(), password, name.trim() || "Investor");
       else await login(email.trim(), password);
-      router.replace("/(tabs)");
+      router.replace("/");
     } catch (e: any) {
       setError(e.message || "Failed. Please try again.");
     } finally {
@@ -51,7 +51,7 @@ export default function AuthScreen() {
     setGLoading(true);
     try {
       await loginWithGoogle();
-      router.replace("/(tabs)");
+      router.replace("/");
     } catch (e: any) {
       setError(e.message || "Google sign-in failed.");
     } finally {
@@ -169,6 +169,18 @@ export default function AuthScreen() {
                 </Text>
               </Text>
             </Pressable>
+
+            <Text style={styles.terms}>
+              By continuing you agree to our{" "}
+              <Text
+                testID="auth-disclaimer-link"
+                style={styles.toggleLink}
+                onPress={() => router.push("/disclaimer")}
+              >
+                Disclaimer &amp; Terms
+              </Text>
+              . Educational use only — not financial advice.
+            </Text>
           </ScrollView>
         </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
@@ -230,4 +242,12 @@ const styles = StyleSheet.create({
   toggle: { marginTop: spacing.xl, alignItems: "center" },
   toggleText: { fontFamily: fonts.body, color: colors.muted, fontSize: 14 },
   toggleLink: { fontFamily: fonts.bodySemi, color: colors.brand },
+  terms: {
+    fontFamily: fonts.body,
+    fontSize: 12,
+    color: colors.muted,
+    textAlign: "center",
+    marginTop: spacing.lg,
+    lineHeight: 18,
+  },
 });

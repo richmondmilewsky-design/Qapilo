@@ -150,6 +150,7 @@ def public_user(u: dict) -> dict:
         "daily_xp": u.get("daily_xp", 0) if u.get("daily_date") == today_str() else 0,
         "daily_goal": DAILY_GOAL_XP,
         "auth_provider": u.get("auth_provider", "password"),
+        "accepted_terms": u.get("accepted_terms", False),
         **compute_pro(u),
     }
 
@@ -229,6 +230,7 @@ async def signup(body: SignupBody):
         "created_at": datetime.now(timezone.utc).isoformat(),
         "trial_ends_at": (datetime.now(timezone.utc) + timedelta(days=TRIAL_DAYS)).isoformat(),
         "pro_active": False, "subscription_id": None, "subscription_status": None,
+        "accepted_terms": False,
     }
     await db.users.insert_one(user)
     return {"token": make_token(user["user_id"]), "user": public_user(user)}
@@ -273,6 +275,7 @@ async def google_auth(body: GoogleBody):
             "created_at": datetime.now(timezone.utc).isoformat(),
             "trial_ends_at": (datetime.now(timezone.utc) + timedelta(days=TRIAL_DAYS)).isoformat(),
             "pro_active": False, "subscription_id": None, "subscription_status": None,
+            "accepted_terms": False,
         }
         await db.users.insert_one(user)
     else:
@@ -293,6 +296,17 @@ async def me(user: dict = Depends(get_current_user)):
 @api.post("/auth/logout")
 async def logout(user: dict = Depends(get_current_user)):
     return {"ok": True}
+
+
+@api.post("/auth/accept-terms")
+async def accept_terms(user: dict = Depends(get_current_user)):
+    await db.users.update_one(
+        {"user_id": user["user_id"]},
+        {"$set": {"accepted_terms": True,
+                  "terms_accepted_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    fresh = await db.users.find_one({"user_id": user["user_id"]}, {"_id": 0})
+    return {"user": public_user(fresh)}
 
 
 # ----------------------------- Curriculum -----------------------------

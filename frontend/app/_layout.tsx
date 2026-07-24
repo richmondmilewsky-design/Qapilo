@@ -4,7 +4,6 @@ import { useEffect } from "react";
 import { LogBox } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { KeyboardProvider } from "react-native-keyboard-controller";
 import { StatusBar } from "expo-status-bar";
 import { useFonts } from "expo-font";
 
@@ -36,23 +35,21 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.surface }}>
-      <KeyboardProvider>
-        <SafeAreaProvider>
-          <AuthProvider>
-            <StatusBar style="light" />
-            <Stack
-              screenOptions={{
-                headerShown: false,
-                contentStyle: { backgroundColor: colors.surface },
-                animation: "slide_from_right",
-              }}
-            >
-              <Stack.Screen name="lesson/[id]" options={{ animation: "slide_from_bottom" }} />
-              <Stack.Screen name="paywall" options={{ animation: "slide_from_bottom", presentation: "modal" }} />
-            </Stack>
-          </AuthProvider>
-        </SafeAreaProvider>
-      </KeyboardProvider>
+      <SafeAreaProvider>
+        <AuthProvider>
+          <StatusBar style="light" />
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              contentStyle: { backgroundColor: colors.surface },
+              animation: "slide_from_right",
+            }}
+          >
+            <Stack.Screen name="lesson/[id]" options={{ animation: "slide_from_bottom" }} />
+            <Stack.Screen name="paywall" options={{ animation: "slide_from_bottom", presentation: "modal" }} />
+          </Stack>
+        </AuthProvider>
+      </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }

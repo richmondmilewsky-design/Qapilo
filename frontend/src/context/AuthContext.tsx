@@ -27,6 +27,7 @@ export type User = {
   trial_days_left: number;
   trial_ends_at: string | null;
   subscription_status: string | null;
+  accepted_terms: boolean;
 };
 
 type AuthCtx = {

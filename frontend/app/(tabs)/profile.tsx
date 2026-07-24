@@ -167,6 +167,12 @@ export default function ProfileScreen() {
             ))}
           </View>
 
+          <Pressable testID="disclaimer-link" onPress={() => router.push("/disclaimer")} style={styles.linkRow}>
+            <Ionicons name="document-text-outline" size={20} color={colors.onSurfaceSecondary} />
+            <Text style={styles.linkText}>Disclaimer &amp; Terms</Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+          </Pressable>
+
           <Pressable testID="logout-button" onPress={doLogout} style={styles.logout}>
             <Ionicons name="log-out-outline" size={20} color={colors.error} />
             <Text style={styles.logoutText}>Log Out</Text>
@@ -265,11 +271,24 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: spacing.sm,
-    marginTop: spacing.xxl,
+    marginTop: spacing.md,
     height: 52,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.error,
   },
+  linkRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    marginTop: spacing.xxl,
+    height: 52,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceSecondary,
+  },
+  linkText: { flex: 1, fontFamily: fonts.bodyMed, fontSize: 15, color: colors.onSurface },
   logoutText: { fontFamily: fonts.bodySemi, fontSize: 15, color: colors.error },
 });

@@ -7,10 +7,11 @@ import {
   TextInput,
   Pressable,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { apiRequest } from "@/src/api/client";
@@ -116,7 +117,7 @@ export default function TutorScreen() {
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior="translate-with-padding"
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={insets.bottom + 64}
       >
         <FlatList

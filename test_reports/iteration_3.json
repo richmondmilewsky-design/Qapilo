@@ -1,0 +1,50 @@
+{
+  "summary": "TradeQuest iteration_3 — validated the Expo Go keyboard-controller bug fix (no imports of react-native-keyboard-controller remain in /app/frontend/app or /app/frontend/src; AI Tutor chat works end-to-end on web preview), the NEW Disclaimer/Agreement gate (backend + UI), the newly-configured PayPal sandbox flow, and the restore-subscription button. Backend: 15/15 pytest passed on /app/backend/tests/test_iteration_3.py — signup defaults accepted_terms=false; POST /api/auth/accept-terms sets it true and GET /api/auth/me persists it; POST /api/subscription/create returns real sandbox approval_url (https://www.sandbox.paypal.com/…) + subscription_id; GET /api/pro/plan reports paypal_configured=true, price='4.99', trial_days=7; GET /api/subscription/status returns without error (trial user stays Pro); /api/tutor/chat returns a real Claude reply; regression on curriculum, stocks list & detail (source: alphavantage OR simulated — both valid), leaderboard and lesson-complete XP all pass. Frontend (390x844): fresh signup routes to /agreement (agree-checkbox + agree-continue-button + decline-button all present); Agree & Continue is disabled until checkbox is checked (clicking while unchecked stays on the screen); after checking + Agree, user lands on tabs (Learn). Reloading the app after acceptance goes straight to tabs — no gate re-shown (persistence OK). auth-disclaimer-link on the auth screen opens /disclaimer (read-only with disclaimer-back); profile disclaimer-link opens the same /disclaimer. AI Tutor tab: chat-input + chat-send-button work; chat-msg-user and chat-msg-assistant (Claude, 155 chars) both render — no crash/white screen, keyboard-controller fix confirmed. Paywall: for trial user, trial-banner shows '7 days left', pro-active-badge shown ('Pro unlocked via free trial'), and the NEW restore-sub-button is present and functional — tapping it hits /api/subscription/status and displays note 'Subscription restored — Pro is active!'. Screenshot captured of the paywall final state. Only pre-existing minor issues from iteration_2 remain (see below).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "app/auth.tsx", "issue": "(Carried over from iteration_2, NOT re-fixed) FastAPI 422 (e.g. password <6 chars) still renders as '[object Object]' in the auth-error Text. Non-blocking. Reference: /app/frontend/app/auth.tsx:43", "testID": "auth-error", "priority": "LOW"},
+      {"component": "app/paywall.tsx", "issue": "Minor style/formatting: `manageCancel = async () => {    setBusy(true);` has the opening statement on the same line as the brace (line 108). Cosmetic only.", "testID": "cancel-sub-button", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "app/auth.tsx", "issue": "Console warning: 'TouchableWithoutFeedback is deprecated. Please use Pressable.' — still present on auth.tsx line 72 (was also flagged in iteration_2, not yet fixed). Reference: /app/frontend/app/auth.tsx:72"},
+      {"component": "expo web renderer / lib", "issue": "Console warning: 'props.pointerEvents is deprecated. Use style.pointerEvents' — non-blocking, from a lib (not app code)."}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration_3.py",
+    "/app/test_reports/pytest/pytest_iteration_3.xml"
+  ],
+  "action_items": [
+    "(Carried over) Fix auth-error rendering for FastAPI 422 array-of-objects detail in /app/frontend/app/auth.tsx (or shared api client): map detail => msg strings and join.",
+    "(Carried over, optional) Replace TouchableWithoutFeedback with Pressable in /app/frontend/app/auth.tsx:72.",
+    "Cosmetic: fix `manageCancel = async () => {    setBusy(true);` formatting in /app/frontend/app/paywall.tsx:108.",
+    "The full PayPal sandbox approval + activate round-trip cannot be automated (external PayPal-hosted login). The create step is verified (returns real approval_url); activate/status branches were exercised via the restore button on a trial user."
+  ],
+  "critical_code_review_comments": [
+    "server.py accept_terms endpoint correctly $sets accepted_terms + terms_accepted_at and returns public_user of the fresh doc. public_user exposes accepted_terms which is what index.tsx uses to gate.",
+    "index.tsx correctly routes: loading -> Loading, !user -> /auth, user && !accepted_terms -> /agreement, else -> /(tabs). Simple and correct.",
+    "agreement.tsx uses testIDs agree-checkbox / agree-continue-button / decline-button; disabled state is passed to PrimaryButton via `disabled={!checked}`, verified in UI.",
+    "paywall.tsx restore() calls GET /api/subscription/status which on server refreshes pro_active from PayPal if subscription_id + paypal_configured — safe (wrapped in try/except) and works for pure-trial users too.",
+    "server.py ensure_plan() creates+caches a PayPal plan and product on first use; caches by price+mode in db.config._id='paypal_plan'. Note: `db.config` uses _id string 'paypal_plan' — since it's used with `find_one({_id: ...})` this is fine and never returned to clients.",
+    "backend/.env now has PAYPAL_CLIENT_ID + PAYPAL_SECRET + ALPHA_VANTAGE_API_KEY set (verified by running /api/subscription/create against real sandbox).",
+    "No import of 'react-native-keyboard-controller' anywhere in /app/frontend/app or /app/frontend/src — bug-fix confirmed at code level. tutor.tsx uses core KeyboardAvoidingView (Expo Go safe).",
+    "server.py is now ~890 lines mixing auth/curriculum/stocks/tutor/paypal/disclaimer — recommend splitting into routers (repeated from earlier iterations)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration_3.py (new)",
+    "/app/test_reports/iteration_3.json (new)",
+    "/app/test_reports/pytest/pytest_iteration_3.xml (new)"
+  ],
+  "success_rate": {
+    "backend": "100% (15/15 iteration_3)",
+    "frontend": "100% of exercisable flows (agreement gate + persistence + AI Tutor chat + disclaimer screen + paywall restore all verified on 390x844; PayPal-hosted approval page is external and not automatable)"
+  },
+  "seed_data_creation": "Two ephemeral test users created: TEST_it3_<hex>@tradequest.app (pytest) and uit3_<ts>@tradequest.app (playwright). No prod data touched.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Frontend env var is EXPO_PUBLIC_BACKEND_URL (not EXPO_BACKEND_URL). Signup now routes through /agreement before /(tabs). Existing users with accepted_terms=false (e.g. demo@tradequest.app created in iteration_1) WILL hit the agreement gate on next login — expected. To bypass the gate quickly in tests: POST /api/auth/accept-terms with the user's Bearer token. PayPal keys are LIVE-sandbox; /api/subscription/create returns real approval_url but the PayPal-hosted approval page requires manual browser login and cannot be Playwright-automated. Alpha Vantage key is set; free tier 25/day may exhaust — stock detail source may be 'simulated' (not a bug).",
+  "rca_of_issue": "N/A — reported keyboard-controller crash is fixed at the code level (no imports remain) and AI Tutor chat works end-to-end on the web preview. The Expo Go device itself cannot be exercised by browser automation, but the underlying regression is resolved."
+}
