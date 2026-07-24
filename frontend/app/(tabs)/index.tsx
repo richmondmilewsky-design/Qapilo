@@ -162,9 +162,9 @@ function Node({
   return (
     <View style={[styles.nodeWrap, { transform: [{ translateX: offset }] }]}>
       {isCurrent && (
-        <View style={styles.startPill} testID="current-lesson-pill">
+        <Pressable onPress={onPress} style={styles.startPill} testID="current-lesson-pill">
           <Text style={styles.startPillText}>START</Text>
-        </View>
+        </Pressable>
       )}
       <Pressable
         testID={`lesson-node-${lesson.id}`}
