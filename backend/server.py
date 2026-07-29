@@ -744,20 +744,69 @@ class ChatBody(BaseModel):
 
 
 TUTOR_SYSTEM = (
-    "You are Quest, a friendly stock-market tutor inside a beginner learning app called Qapilo. "
-    "Explain investing and stock concepts in plain, simple English for total beginners. "
-    "Keep answers concise (2-5 short paragraphs max), use relatable analogies, and avoid jargon "
-    "unless you define it. Never give personalized financial advice or specific buy/sell "
-    "recommendations. "
-    "You may be given a 'LIVE DATA' section with current stock prices and recent news snippets — "
-    "when present, use it to answer questions about current prices, recent events, or IPOs, and "
-    "mention the figures/sources naturally. If asked about something not in the LIVE DATA and you "
-    "are unsure of the latest facts, say so rather than guessing. "
-    "ALWAYS end any answer that touches on specific stocks, prices, buying/selling, or market "
-    "predictions with a brief italic disclaimer on its own line: "
-    "'_Educational only — not financial advice._' (translate the disclaimer to the user's language). "
-    "Stay on topics related to stocks, markets, personal finance and investing basics."
+    "You are Qapilo, a beginner-friendly financial education assistant.\n"
+    "Your role:\n"
+    "- Explain stocks, ETFs, markets, investing terminology, and basic personal finance.\n"
+    "- Use simple language and beginner-friendly examples.\n"
+    "- Clearly explain risks and uncertainty.\n"
+    "Rules:\n"
+    "- Provide educational information only.\n"
+    "- Do NOT provide personalized financial advice.\n"
+    "- Do NOT recommend buying, selling, or holding a security.\n"
+    "- Do NOT promise or estimate returns.\n"
+    "- Do NOT invent live prices, news, earnings, ratios, or market data. Only state a live "
+    "price/news figure if it is given to you in a 'LIVE DATA' section below; otherwise say you "
+    "don't have it.\n"
+    "- Treat named stocks only as educational examples.\n"
+    "- If the user asks what THEY personally should buy/sell/do with their money, how to get rich, "
+    "or how to buy a specific asset, refuse politely and give only educational context — never a "
+    "recommendation.\n"
+    "- End every investment-related answer with the disclaimer: "
+    "'For educational purposes only—not financial advice.'\n"
+    "Keep answers concise (2-5 short paragraphs), use relatable analogies, and define any jargon. "
+    "Translate everything, including the disclaimer, into the user's language."
 )
+
+# Localized hard-refusal shown when a user asks for personalized advice / what to buy.
+ADVICE_REFUSAL = {
+    "en": (
+        "I'm here to teach you *about* investing, but I can't tell you what to buy, sell, or do "
+        "with your money — that would be personalized financial advice. I can, however, explain how "
+        "stocks, ETFs, risk and diversification work so you can make your own informed decisions.\n\n"
+        "_For educational purposes only—not financial advice._"
+    ),
+    "de": (
+        "Ich bin hier, um dir Investieren *beizubringen*, aber ich kann dir nicht sagen, was du "
+        "kaufen, verkaufen oder mit deinem Geld tun sollst – das wäre eine persönliche "
+        "Finanzberatung. Ich kann dir aber erklären, wie Aktien, ETFs, Risiko und Diversifikation "
+        "funktionieren, damit du selbst fundierte Entscheidungen triffst.\n\n"
+        "_Nur zu Bildungszwecken – keine Finanzberatung._"
+    ),
+    "es": (
+        "Estoy aquí para enseñarte *sobre* inversión, pero no puedo decirte qué comprar, vender o "
+        "hacer con tu dinero: eso sería asesoramiento financiero personalizado. Sí puedo explicarte "
+        "cómo funcionan las acciones, los ETF, el riesgo y la diversificación para que tomes tus "
+        "propias decisiones informadas.\n\n"
+        "_Solo con fines educativos, no es asesoramiento financiero._"
+    ),
+}
+
+# Intent patterns (EN/DE/ES) that request personalized advice — these are refused outright.
+_ADVICE_PATTERNS = [
+    r"(what|which|welche[nrs]?|qu[eé]|cu[aá]l).{0,40}(should i|do i|to)?\s*(buy|invest|kaufen|investieren|comprar|invertir)",
+    r"(should i|shall i|soll ich|sollte ich|debo|deber[ií]a|tengo que).{0,25}(buy|sell|invest|kaufen|verkaufen|investieren|comprar|vender|invertir)",
+    r"(i have|i've got|i got|ich habe|tengo|tengo unos).{0,30}(money|dollars?|euros?|\$|€|geld|dinero).{0,30}(invest|kaufen|investieren|invertir|do with|machen|hago|hacer)",
+    r"how.{0,20}(become|get|getting|to be).{0,12}rich",
+    r"(reich werden|wie werde ich reich|hacerme rico|volverme rico|hacerme millonario|ganar dinero r[aá]pido|get rich|become rich|make me rich|double my money|triple my money|verdoppeln|duplicar mi dinero)",
+    r"(what.{0,12}do with my money|tell me what to do with|was soll ich mit meinem geld|qu[eé] hago con mi dinero|qu[eé] hacer con mi dinero|what to do with my (money|savings|cash))",
+    r"(how|wie|c[oó]mo).{0,20}(buy|purchase|invest in|kaufe?|kaufen|comprar|compro|invertir en|invertir).{0,18}(stock|share|bitcoin|crypto|ethereum|gold|silver|etf|aktie|krypto|oro|plata|acci[oó]n|acciones)",
+    r"(i want to|i wanna|i'd like to|i would like to|ich will|ich m[oö]chte|quiero|me gustar[ií]a).{0,18}(buy|invest|kaufen|investieren|comprar|invertir)",
+]
+_ADVICE_RE = [re.compile(p, re.IGNORECASE) for p in _ADVICE_PATTERNS]
+
+
+def is_advice_seeking(text: str) -> bool:
+    return any(rx.search(text) for rx in _ADVICE_RE)
 
 # Keywords that indicate the user wants current / real-time information.
 _REALTIME_HINTS = (
@@ -870,7 +919,28 @@ async def tutor_chat(body: ChatBody, user: dict = Depends(get_current_user)):
     if not text:
         raise HTTPException(status_code=400, detail="Message is empty")
 
+    lang = norm_lang(body.lang)
     is_pro = compute_pro(user)["is_pro"]
+
+    # Hard guardrail: refuse personalized-advice questions ("what should I buy",
+    # "how do I get rich", "how to buy bitcoin/gold", etc.) with only the disclaimer.
+    if is_advice_seeking(text):
+        refusal = ADVICE_REFUSAL.get(lang, ADVICE_REFUSAL["en"])
+        now = datetime.now(timezone.utc)
+        day = now.strftime("%Y-%m-%d")
+        await db.chat_messages.insert_many([
+            {"user_id": user["user_id"], "role": "user", "content": text,
+             "day": day, "created_at": now.isoformat()},
+            {"user_id": user["user_id"], "role": "assistant", "content": refusal,
+             "day": day, "created_at": (now + timedelta(milliseconds=1)).isoformat()},
+        ])
+        used_now = await tutor_used_today(user["user_id"])
+        return {
+            "reply": refusal,
+            "remaining": None if is_pro else max(0, FREE_TUTOR_DAILY_LIMIT - used_now),
+            "is_pro": is_pro,
+        }
+
     used = await tutor_used_today(user["user_id"])
     if not is_pro and used >= FREE_TUTOR_DAILY_LIMIT:
         raise HTTPException(
