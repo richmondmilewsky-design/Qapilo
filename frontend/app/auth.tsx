@@ -41,7 +41,7 @@ export default function AuthScreen() {
       else await login(email.trim(), password);
       router.replace("/");
     } catch (e: any) {
-      setError(e.message || "Failed. Please try again.");
+      setError(e.message || t("auth.failed"));
     } finally {
       setLoading(false);
     }
@@ -54,7 +54,7 @@ export default function AuthScreen() {
       await loginWithGoogle();
       router.replace("/");
     } catch (e: any) {
-      setError(e.message || "Google sign-in failed.");
+      setError(e.message || t("auth.googleFailed"));
     } finally {
       setGLoading(false);
     }

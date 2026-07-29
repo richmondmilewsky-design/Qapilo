@@ -24,7 +24,10 @@ type Opts = { method?: string; body?: any; auth?: boolean };
 
 export async function apiRequest<T = any>(path: string, opts: Opts = {}): Promise<T> {
   const { method = "GET", body, auth = true } = opts;
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "Accept-Language": currentLang,
+  };
   if (auth) {
     const t = await getToken();
     if (t) headers.Authorization = `Bearer ${t}`;
@@ -44,7 +47,12 @@ export async function apiRequest<T = any>(path: string, opts: Opts = {}): Promis
     if (Array.isArray(detail)) {
       detail = detail.map((d: any) => d?.msg || d?.detail || "").filter(Boolean).join(", ");
     }
-    throw new Error(detail || (data && data.message) || "Something went wrong");
+    const fallback = {
+      en: "Something went wrong. Please try again.",
+      de: "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
+      es: "Algo salió mal. Inténtalo de nuevo.",
+    }[currentLang as "en" | "de" | "es"] || "Something went wrong. Please try again.";
+    throw new Error(detail || (data && data.message) || fallback);
   }
   return data as T;
 }

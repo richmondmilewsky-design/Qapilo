@@ -1,0 +1,30 @@
+{
+  "summary": "Localization audit for backend error strings (Accept-Language middleware + errors_i18n.L) and frontend inline error rendering verified end-to-end. Backend pytest suite (21 tests) at /app/backend/tests/test_iteration_9_i18n_errors.py all pass: /api/auth/login (bad creds), /api/auth/signup (duplicate email), /api/stocks/ZZZZ (auth), and missing/invalid token variants all return localized detail strings in EN/DE/ES exactly matching the errors_i18n dictionary. Region tags (de-DE,de;q=0.9) resolve to German; unknown languages (fr) fall back to English. Frontend mobile viewport (390x844): switched language via LanguageButton to EN/DE/ES and submitted wrong credentials — inline auth-error rendered the correct localized backend detail each time. ES duplicate signup showed 'El correo ya está registrado'. Brand 'QAPILO' remains untranslated across all three locales. Successful signup regression works. No red screens, no layout breakage.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration_9_i18n_errors.py",
+    "/app/test_reports/pytest/pytest_iteration_9.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "errors_i18n.set_lang_from_header parses the first two characters of the first Accept-Language item (e.g., 'de-DE' -> 'de'). q-weighted priority is ignored — 'en;q=0.1,de' would still resolve to 'en' because 'en' is listed first. Not a regression (frontend always sends single tag), but worth noting for HTTP correctness.",
+    "language contextvar is set in FastAPI middleware; because middleware and request handlers run in the same task, the contextvar value is race-free per request. Confirmed via parallel tests hitting all three languages simultaneously (test suite uses pytest-xdist with 2 workers).",
+    "client.ts appends '?lang=<currentLang>' to every GET, in addition to sending Accept-Language. Not causing issues; backend endpoints accept lang= query param independently for curriculum/lesson content, so the header approach cleanly separates ERROR localization (contextvar) from CONTENT localization (query param).",
+    "No hardcoded English error strings remain in the reviewed backend paths — all 24 HTTPException detail= calls use L('code')."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration_9_i18n_errors.py (new)"
+  ],
+  "success_rate": {"backend": "100% (21/21)", "frontend": "100% (EN/DE/ES bad-creds + ES duplicate signup)"},
+  "seed_data_creation": "Throwaway users TEST_i18n_<hex>@qapilo.io created via /api/auth/signup during pytest run; dup_i18n_<ts>@qapilo.io created via UI during Playwright regression. Cleanup: not needed (isolated random emails; do not interfere with real data).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Localization of backend HTTP error 'detail' strings via Accept-Language is fully functional across EN/DE/ES for all tested endpoints (login, signup, stock detail, auth token). Frontend client sends Accept-Language header from currentLang; inline auth error surfaces the localized backend detail as-is. Brand 'QAPILO' correctly not translated. Test suite for i18n errors: backend/tests/test_iteration_9_i18n_errors.py — reuse for future localization regressions.",
+  "rca_of_issue": "N/A — this iteration was a localization enhancement verification, not a bug fix. Implementation (contextvar + middleware + L() helper) is correct and thread-safe per request."
+}

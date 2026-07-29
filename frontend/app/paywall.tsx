@@ -81,7 +81,7 @@ export default function Paywall() {
         await load();
       }
     } catch (e: any) {
-      setNote(e.message || "Could not start the subscription. Please try again.");
+      setNote(e.message || t("paywall.subError"));
     } finally {
       setBusy(false);
     }
@@ -101,7 +101,7 @@ export default function Paywall() {
           : "No active subscription found yet. If you just paid, wait a moment and try again."
       );
     } catch (e: any) {
-      setNote(e.message || "Could not refresh subscription.");
+      setNote(e.message || t("paywall.refreshError"));
     } finally {
       setBusy(false);
     }
@@ -114,7 +114,7 @@ export default function Paywall() {
       await load();
       setNote("Your subscription has been cancelled.");
     } catch (e: any) {
-      setNote(e.message || "Could not cancel.");
+      setNote(e.message || t("paywall.cancelError"));
     } finally {
       setBusy(false);
     }

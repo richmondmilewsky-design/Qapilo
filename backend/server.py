@@ -22,6 +22,7 @@ from curriculum import (
     UNITS, LESSON_MAP, LESSON_ORDER, BADGES, BADGE_MAP,
     UNIT_T, LESSON_T, STOCK_T, norm_lang, LESSONS_BY_TIER, TIER_META,
 )
+from errors_i18n import L, set_lang_from_header
 from stocks import STOCKS, STOCK_MAP, CATEGORIES, fallback_quote, fallback_history
 from emergentintegrations.llm.chat import LlmChat, UserMessage
 
@@ -198,16 +199,16 @@ def public_user(u: dict) -> dict:
 async def get_current_user(request: Request) -> dict:
     auth = request.headers.get("Authorization", "")
     if not auth.lower().startswith("bearer "):
-        raise HTTPException(status_code=401, detail="Not authenticated")
+        raise HTTPException(status_code=401, detail=L("not_authenticated"))
     token = auth.split(" ", 1)[1].strip()
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALG])
         user_id = payload.get("sub")
     except Exception:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
+        raise HTTPException(status_code=401, detail=L("invalid_token"))
     user = await db.users.find_one({"user_id": user_id}, {"_id": 0})
     if not user:
-        raise HTTPException(status_code=401, detail="User not found")
+        raise HTTPException(status_code=401, detail=L("user_not_found"))
     return user
 
 
@@ -255,7 +256,7 @@ async def _shutdown():
 async def signup(body: SignupBody):
     existing = await db.users.find_one({"email": body.email.lower()})
     if existing:
-        raise HTTPException(status_code=400, detail="Email already registered")
+        raise HTTPException(status_code=400, detail=L("email_taken"))
     user = {
         "user_id": f"user_{uuid.uuid4().hex[:12]}",
         "email": body.email.lower(),
@@ -282,9 +283,9 @@ async def login(body: LoginBody):
     dummy = pwd_context.hash("dummy-timing-guard")
     if not user or not user.get("hashed_password"):
         pwd_context.verify(body.password, dummy)
-        raise HTTPException(status_code=401, detail="Invalid email or password")
+        raise HTTPException(status_code=401, detail=L("bad_credentials"))
     if not pwd_context.verify(body.password, user["hashed_password"]):
-        raise HTTPException(status_code=401, detail="Invalid email or password")
+        raise HTTPException(status_code=401, detail=L("bad_credentials"))
     return {"token": make_token(user["user_id"]), "user": public_user(user)}
 
 
@@ -296,7 +297,7 @@ async def google_auth(body: GoogleBody):
             headers={"X-Session-ID": body.session_id},
         )
     if r.status_code != 200:
-        raise HTTPException(status_code=401, detail="Google session invalid")
+        raise HTTPException(status_code=401, detail=L("google_invalid"))
     data = r.json()
     email = data["email"].lower()
     user = await db.users.find_one({"email": email})
@@ -391,9 +392,9 @@ async def curriculum(lang: str = "en", user: dict = Depends(get_current_user)):
 async def get_lesson(lesson_id: str, lang: str = "en", user: dict = Depends(get_current_user)):
     l = LESSON_MAP.get(lesson_id)
     if not l:
-        raise HTTPException(status_code=404, detail="Lesson not found")
+        raise HTTPException(status_code=404, detail=L("lesson_not_found"))
     if l["unit_id"] in PRO_UNITS and not compute_pro(user)["is_pro"]:
-        raise HTTPException(status_code=403, detail="This lesson requires Qapilo Pro")
+        raise HTTPException(status_code=403, detail=L("lesson_pro"))
     loc = loc_lesson_full(l, norm_lang(lang))
     return {
         "id": l["id"], "title": loc["title"], "icon": l["icon"], "xp": l["xp"],
@@ -437,7 +438,7 @@ def evaluate_badges(u: dict) -> List[str]:
 async def complete_lesson(lesson_id: str, body: CompleteBody, user: dict = Depends(get_current_user)):
     l = LESSON_MAP.get(lesson_id)
     if not l:
-        raise HTTPException(status_code=404, detail="Lesson not found")
+        raise HTTPException(status_code=404, detail=L("lesson_not_found"))
 
     completed = list(user.get("completed_lessons", []))
     perfect = list(user.get("perfect_lessons", []))
@@ -706,7 +707,7 @@ async def list_stocks(category: Optional[str] = None, q: Optional[str] = None,
 async def stock_detail(symbol: str, lang: str = "en", user: dict = Depends(get_current_user)):
     s = STOCK_MAP.get(symbol.upper())
     if not s:
-        raise HTTPException(status_code=404, detail="Stock not found")
+        raise HTTPException(status_code=404, detail=L("stock_not_found"))
     quote = await finnhub_quote(s["symbol"])
     return {
         "symbol": s["symbol"], "name": s["name"], "category": s["category"],
@@ -722,7 +723,7 @@ async def stock_detail(symbol: str, lang: str = "en", user: dict = Depends(get_c
 async def toggle_watchlist(symbol: str, user: dict = Depends(get_current_user)):
     sym = symbol.upper()
     if sym not in STOCK_MAP:
-        raise HTTPException(status_code=404, detail="Stock not found")
+        raise HTTPException(status_code=404, detail=L("stock_not_found"))
     watchlist = list(user.get("watchlist", []))
     if sym in watchlist:
         watchlist.remove(sym)
@@ -914,10 +915,10 @@ async def tutor_history(user: dict = Depends(get_current_user)):
 @api.post("/tutor/chat")
 async def tutor_chat(body: ChatBody, user: dict = Depends(get_current_user)):
     if not EMERGENT_LLM_KEY:
-        raise HTTPException(status_code=503, detail="AI Tutor is not configured")
+        raise HTTPException(status_code=503, detail=L("tutor_not_configured"))
     text = body.message.strip()
     if not text:
-        raise HTTPException(status_code=400, detail="Message is empty")
+        raise HTTPException(status_code=400, detail=L("message_empty"))
 
     lang = norm_lang(body.lang)
     is_pro = compute_pro(user)["is_pro"]
@@ -945,7 +946,7 @@ async def tutor_chat(body: ChatBody, user: dict = Depends(get_current_user)):
     if not is_pro and used >= FREE_TUTOR_DAILY_LIMIT:
         raise HTTPException(
             status_code=402,
-            detail="You've used your free AI Tutor messages for today. Upgrade to Pro for unlimited chat.",
+            detail=L("tutor_limit"),
         )
 
     # Build compact recent context transcript
@@ -975,7 +976,7 @@ async def tutor_chat(body: ChatBody, user: dict = Depends(get_current_user)):
         reply = await chat.send_message(UserMessage(text=prompt))
     except Exception as e:
         logger.error(f"Tutor error: {e}")
-        raise HTTPException(status_code=502, detail="The AI Tutor is unavailable right now")
+        raise HTTPException(status_code=502, detail=L("tutor_unavailable"))
 
     now = datetime.now(timezone.utc)
     day = now.strftime("%Y-%m-%d")
@@ -1013,7 +1014,7 @@ async def paypal_token() -> str:
         )
     if r.status_code != 200:
         logger.error(f"PayPal token error: {r.text}")
-        raise HTTPException(status_code=502, detail="PayPal authentication failed")
+        raise HTTPException(status_code=502, detail=L("paypal_auth_failed"))
     return r.json()["access_token"]
 
 
@@ -1032,7 +1033,7 @@ async def ensure_plan() -> str:
         })
         if pr.status_code not in (200, 201):
             logger.error(f"PayPal product error: {pr.text}")
-            raise HTTPException(status_code=502, detail="Could not create PayPal product")
+            raise HTTPException(status_code=502, detail=L("paypal_product_failed"))
         product_id = pr.json()["id"]
 
         plan_body = {
@@ -1061,7 +1062,7 @@ async def ensure_plan() -> str:
         pl = await hc.post(f"{PAYPAL_BASE}/v1/billing/plans", headers=headers, json=plan_body)
         if pl.status_code not in (200, 201):
             logger.error(f"PayPal plan error: {pl.text}")
-            raise HTTPException(status_code=502, detail="Could not create PayPal plan")
+            raise HTTPException(status_code=502, detail=L("paypal_plan_failed"))
         plan_id = pl.json()["id"]
 
     await db.config.update_one(
@@ -1092,7 +1093,7 @@ async def pro_plan(user: dict = Depends(get_current_user)):
 async def subscription_create(body: SubscribeBody, request: Request,
                               user: dict = Depends(get_current_user)):
     if not paypal_configured():
-        raise HTTPException(status_code=503, detail="Payments are not configured yet")
+        raise HTTPException(status_code=503, detail=L("payments_not_configured"))
     plan_id = await ensure_plan()
     base = (body.return_base or str(request.base_url)).rstrip("/")
     return_url = f"{base}/api/subscription/return"
@@ -1117,7 +1118,7 @@ async def subscription_create(body: SubscribeBody, request: Request,
         )
     if r.status_code not in (200, 201):
         logger.error(f"PayPal subscription error: {r.text}")
-        raise HTTPException(status_code=502, detail="Could not start subscription")
+        raise HTTPException(status_code=502, detail=L("sub_start_failed"))
     data = r.json()
     approve = next((l["href"] for l in data.get("links", []) if l["rel"] == "approve"), None)
     await db.users.update_one(
@@ -1143,16 +1144,16 @@ async def subscription_return():
 async def subscription_activate(body: dict, user: dict = Depends(get_current_user)):
     sub_id = body.get("subscription_id") or user.get("subscription_id")
     if not sub_id:
-        raise HTTPException(status_code=400, detail="No subscription to activate")
+        raise HTTPException(status_code=400, detail=L("no_sub_to_activate"))
     if not paypal_configured():
-        raise HTTPException(status_code=503, detail="Payments are not configured yet")
+        raise HTTPException(status_code=503, detail=L("payments_not_configured"))
     token = await paypal_token()
     async with httpx.AsyncClient(timeout=30) as hc:
         r = await hc.get(f"{PAYPAL_BASE}/v1/billing/subscriptions/{sub_id}",
                          headers={"Authorization": f"Bearer {token}"})
     if r.status_code != 200:
         logger.error(f"PayPal get sub error: {r.text}")
-        raise HTTPException(status_code=502, detail="Could not verify subscription")
+        raise HTTPException(status_code=502, detail=L("sub_verify_failed"))
     status = r.json().get("status")
     active = status in ("ACTIVE", "APPROVED")
     await db.users.update_one(
@@ -1245,6 +1246,14 @@ async def account_delete(user: dict = Depends(get_current_user)):
 
 
 app.include_router(api)
+
+
+@app.middleware("http")
+async def language_middleware(request: Request, call_next):
+    set_lang_from_header(request.headers.get("accept-language", ""))
+    return await call_next(request)
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
