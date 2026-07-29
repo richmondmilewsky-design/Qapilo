@@ -21,10 +21,10 @@ import { colors, fonts, radius, spacing } from "@/src/theme/theme";
 type Msg = { role: "user" | "assistant"; content: string };
 
 const SUGGESTIONS = [
-  "What is a stock in simple terms?",
+  "What is the current price of Apple (AAPL)?",
+  "Any latest news on the SpaceX IPO?",
   "Explain the P/E ratio like I'm five",
   "What's the difference between ETFs and stocks?",
-  "Why do stock prices go up and down?",
 ];
 
 export default function TutorScreen() {

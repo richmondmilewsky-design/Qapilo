@@ -10,11 +10,13 @@ import { apiRequest } from "@/src/api/client";
 import { useI18n } from "@/src/i18n/I18nContext";
 import { colors, fonts, radius, spacing, BADGE_ICONS } from "@/src/theme/theme";
 import { Loading } from "@/src/components/ui";
+import StockLogo from "@/src/components/StockLogo";
 
 const COVER =
   "https://images.unsplash.com/photo-1638184984605-af1f05249a56?crop=entropy&cs=srgb&fm=jpg&q=85&w=1000";
 
 type Badge = { id: string; name: string; desc: string; icon: string; earned: boolean };
+type WatchStock = { symbol: string; name: string; logo: string; price: number; change_pct: number; in_watchlist: boolean };
 
 export default function ProfileScreen() {
   const { user, logout, refresh } = useAuth();
@@ -23,14 +25,19 @@ export default function ProfileScreen() {
   const { t, locale, openPicker } = useI18n();
   const [badges, setBadges] = useState<Badge[]>([]);
   const [total, setTotal] = useState(15);
+  const [watchlist, setWatchlist] = useState<WatchStock[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const data = await apiRequest<{ badges: Badge[]; total_lessons: number }>("/progress");
-      setBadges(data.badges);
-      setTotal(data.total_lessons);
+      const [prog, stocks] = await Promise.all([
+        apiRequest<{ badges: Badge[]; total_lessons: number }>("/progress"),
+        apiRequest<{ stocks: WatchStock[] }>("/stocks"),
+      ]);
+      setBadges(prog.badges);
+      setTotal(prog.total_lessons);
+      setWatchlist(stocks.stocks.filter((s) => s.in_watchlist));
     } catch {}
   }, []);
 
@@ -147,6 +154,48 @@ export default function ProfileScreen() {
             ))}
           </View>
 
+          {/* Watchlist widget */}
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>{t("profile.watchlist")}</Text>
+            {watchlist.length > 0 && (
+              <Pressable testID="watchlist-see-all" onPress={() => router.push("/(tabs)/explore")}>
+                <Text style={styles.seeAll}>{t("profile.seeAll")}</Text>
+              </Pressable>
+            )}
+          </View>
+          {watchlist.length === 0 ? (
+            <Pressable testID="watchlist-empty" onPress={() => router.push("/(tabs)/explore")} style={styles.watchEmpty}>
+              <Ionicons name="star-outline" size={22} color={colors.muted} />
+              <Text style={styles.watchEmptyText}>{t("profile.watchEmpty")}</Text>
+            </Pressable>
+          ) : (
+            <View style={styles.watchCard}>
+              {watchlist.slice(0, 5).map((s, idx) => {
+                const up = s.change_pct >= 0;
+                return (
+                  <Pressable
+                    key={s.symbol}
+                    testID={`profile-watch-${s.symbol}`}
+                    onPress={() => router.push(`/stock/${s.symbol}`)}
+                    style={[styles.watchRow, idx > 0 && styles.watchRowBorder]}
+                  >
+                    <StockLogo uri={s.logo} symbol={s.symbol} size={34} borderRadius={radius.sm} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.watchSymbol}>{s.symbol}</Text>
+                      <Text style={styles.watchName} numberOfLines={1}>{s.name}</Text>
+                    </View>
+                    <View style={{ alignItems: "flex-end" }}>
+                      <Text style={styles.watchPrice}>${s.price.toLocaleString()}</Text>
+                      <Text style={[styles.watchChange, { color: up ? colors.brand : colors.error }]}>
+                        {up ? "+" : ""}{s.change_pct.toFixed(2)}%
+                      </Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+
           {/* Badges */}
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionTitle}>{t("profile.badges")}</Text>
@@ -262,6 +311,34 @@ const styles = StyleSheet.create({
   sectionHeaderRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.md },
   sectionTitle: { fontFamily: fonts.display, fontSize: 22, color: colors.onSurface },
   sectionCount: { fontFamily: fonts.bodyMed, fontSize: 14, color: colors.amber },
+  seeAll: { fontFamily: fonts.bodySemi, fontSize: 13, color: colors.brand },
+  watchCard: {
+    backgroundColor: colors.surfaceSecondary,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.xl,
+  },
+  watchRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: spacing.md },
+  watchRowBorder: { borderTopWidth: 1, borderTopColor: colors.border },
+  watchSymbol: { fontFamily: fonts.display, fontSize: 17, color: colors.onSurface },
+  watchName: { fontFamily: fonts.body, fontSize: 12, color: colors.muted },
+  watchPrice: { fontFamily: fonts.bodySemi, fontSize: 15, color: colors.onSurface },
+  watchChange: { fontFamily: fonts.bodySemi, fontSize: 12, marginTop: 1 },
+  watchEmpty: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    backgroundColor: colors.surfaceSecondary,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderStyle: "dashed",
+    padding: spacing.lg,
+    marginBottom: spacing.xl,
+  },
+  watchEmptyText: { flex: 1, fontFamily: fonts.body, fontSize: 13, color: colors.muted },
   badgeGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md },
   badgeItem: { width: "22%", alignItems: "center", gap: spacing.xs },
   badgeCircle: {

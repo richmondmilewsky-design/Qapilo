@@ -1,5 +1,5 @@
 export const DISCLAIMER_INTRO =
-  "Please read this disclaimer carefully before using TradeQuest.";
+  "Please read this disclaimer carefully before using Qapilo.";
 
 export const DISCLAIMER_SECTIONS: { heading: string; body: string }[] = [
   {

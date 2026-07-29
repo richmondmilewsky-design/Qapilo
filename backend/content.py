@@ -1,4 +1,4 @@
-"""Static curriculum content for TradeQuest — Duolingo-style stock learning."""
+"""Static curriculum content for Qapilo — Duolingo-style stock learning."""
 
 UNITS = [
     {

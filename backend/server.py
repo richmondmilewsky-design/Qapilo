@@ -2,6 +2,8 @@ import os
 import uuid
 import base64
 import asyncio
+import random
+import re
 import logging
 from pathlib import Path
 from datetime import datetime, timezone, timedelta, date
@@ -16,9 +18,11 @@ from pydantic import BaseModel, EmailStr, Field
 from passlib.context import CryptContext
 from dotenv import load_dotenv
 
-from content import UNITS, LESSON_MAP, LESSON_ORDER, BADGES, BADGE_MAP
+from curriculum import (
+    UNITS, LESSON_MAP, LESSON_ORDER, BADGES, BADGE_MAP,
+    UNIT_T, LESSON_T, STOCK_T, norm_lang, LESSONS_BY_TIER, TIER_META,
+)
 from stocks import STOCKS, STOCK_MAP, CATEGORIES, fallback_quote, fallback_history
-from content_i18n import UNIT_T, LESSON_T, STOCK_T, norm_lang
 from emergentintegrations.llm.chat import LlmChat, UserMessage
 
 ROOT_DIR = Path(__file__).parent
@@ -32,13 +36,14 @@ JWT_SECRET = os.environ.get("JWT_SECRET", "change-me-dev-secret")
 JWT_ALG = "HS256"
 JWT_EXPIRES_DAYS = 30
 FINNHUB_KEY = os.environ.get("FINNHUB_API_KEY", "").strip()
+TAVILY_KEY = os.environ.get("TAVILY_API_KEY", "").strip()
 DAILY_GOAL_XP = 50
 
 # --- Monetization / AI config ---
 EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "").strip()
 CLAUDE_MODEL = "claude-sonnet-4-6"
 TRIAL_DAYS = 7
-PRO_UNITS = {"u4", "u5"}  # advanced units gated behind Pro
+PRO_UNITS = {f"u{i}" for i in range(21, 51)}  # tiers 3-5 (advanced) gated behind Pro
 FREE_TUTOR_DAILY_LIMIT = 3
 PAYPAL_CLIENT_ID = os.environ.get("PAYPAL_CLIENT_ID", "").strip()
 PAYPAL_SECRET = os.environ.get("PAYPAL_SECRET", "").strip()
@@ -370,7 +375,8 @@ async def curriculum(lang: str = "en", user: dict = Depends(get_current_user)):
             prev_done = is_done
         units_out.append({
             "id": u["id"], "title": ut["title"], "subtitle": ut["subtitle"],
-            "color": u["color"], "lessons": lessons_out, "pro": unit_pro,
+            "color": u["color"], "tier": u.get("tier", 1),
+            "lessons": lessons_out, "pro": unit_pro,
         })
     total = len(LESSON_ORDER)
     return {
@@ -387,7 +393,7 @@ async def get_lesson(lesson_id: str, lang: str = "en", user: dict = Depends(get_
     if not l:
         raise HTTPException(status_code=404, detail="Lesson not found")
     if l["unit_id"] in PRO_UNITS and not compute_pro(user)["is_pro"]:
-        raise HTTPException(status_code=403, detail="This lesson requires TradeQuest Pro")
+        raise HTTPException(status_code=403, detail="This lesson requires Qapilo Pro")
     loc = loc_lesson_full(l, norm_lang(lang))
     return {
         "id": l["id"], "title": loc["title"], "icon": l["icon"], "xp": l["xp"],
@@ -415,7 +421,7 @@ def evaluate_badges(u: dict) -> List[str]:
         award("streak_7")
     if len(perfect) >= 1:
         award("perfectionist")
-    if len(completed) >= 8:
+    if len(completed) >= max(8, len(LESSON_ORDER) // 2):
         award("half_way")
     if len(completed) >= len(LESSON_ORDER):
         award("graduate")
@@ -502,6 +508,99 @@ async def complete_lesson(lesson_id: str, body: CompleteBody, user: dict = Depen
         "new_badges": [BADGE_MAP[b] for b in new_badges],
         "user": public_user(updated),
     }
+
+
+class PracticeBody(BaseModel):
+    correct: int
+    total: int
+    tier: Optional[int] = 1
+    lang: Optional[str] = "en"
+
+
+@api.get("/practice")
+async def practice_session(lang: str = "en", user: dict = Depends(get_current_user)):
+    """Endless practice: 5 mixed questions drawn from the tiers the learner has
+    reached. Difficulty (and XP reward) rises as the user levels up."""
+    lang = norm_lang(lang)
+    completed = set(user.get("completed_lessons", []))
+    level = level_for_xp(user.get("xp", 0))
+    # Higher level unlocks harder tiers; also unlock a tier once a lesson in it is done.
+    max_tier = min(5, max(1, 1 + level // 3))
+    for lid in completed:
+        max_tier = max(max_tier, LESSON_MAP.get(lid, {}).get("tier", 1))
+    max_tier = min(5, max_tier)
+
+    pool = [lid for lid, l in LESSON_MAP.items() if l["tier"] <= max_tier] or list(LESSON_MAP.keys())
+    random.shuffle(pool)
+    questions, used, tiers_used = [], set(), []
+    for lid in pool:
+        l = LESSON_MAP[lid]
+        qs = loc_lesson_full(l, lang)["questions"]
+        if not qs:
+            continue
+        q = random.choice(qs)
+        if q["q"] in used:
+            continue
+        used.add(q["q"])
+        questions.append({"q": q["q"], "options": q["options"], "answer": q["answer"],
+                          "explain": q["explain"], "tier": l["tier"]})
+        tiers_used.append(l["tier"])
+        if len(questions) >= 5:
+            break
+    avg_tier = round(sum(tiers_used) / len(tiers_used)) if tiers_used else 1
+    return {
+        "questions": questions,
+        "reward_xp": 15 + avg_tier * 5,
+        "tier": avg_tier,
+        "max_tier": max_tier,
+        "practice_level": level,
+    }
+
+
+@api.post("/practice/complete")
+async def practice_complete(body: PracticeBody, user: dict = Depends(get_current_user)):
+    accuracy = body.correct / body.total if body.total else 0
+    tier = max(1, min(5, body.tier or 1))
+    earned_xp = max(5, round((15 + tier * 5) * (0.4 + 0.6 * accuracy)))
+
+    today = today_str()
+    last = user.get("last_active")
+    streak = user.get("streak", 0)
+    if last != today:
+        yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%Y-%m-%d")
+        streak = streak + 1 if last == yesterday else 1
+
+    daily_date = user.get("daily_date")
+    daily_xp = user.get("daily_xp", 0)
+    if daily_date != today:
+        daily_xp = 0
+    daily_xp += earned_xp
+
+    new_xp = user.get("xp", 0) + earned_xp
+    longest = max(user.get("longest_streak", 0), streak)
+    practice_count = user.get("practice_count", 0) + 1
+
+    updated = {
+        **user, "xp": new_xp, "streak": streak, "longest_streak": longest,
+        "daily_xp": daily_xp, "daily_date": today, "last_active": today,
+        "practice_count": practice_count,
+    }
+    new_badges = evaluate_badges(updated)
+    await db.users.update_one(
+        {"user_id": user["user_id"]},
+        {"$set": {
+            "xp": new_xp, "streak": streak, "longest_streak": longest,
+            "daily_xp": daily_xp, "daily_date": today, "last_active": today,
+            "practice_count": practice_count, "badges": updated["badges"],
+        }},
+    )
+    return {
+        "earned_xp": earned_xp,
+        "perfect": body.correct == body.total and body.total > 0,
+        "new_badges": [BADGE_MAP[b] for b in new_badges],
+        "user": public_user(updated),
+    }
+
 
 
 @api.get("/progress")
@@ -645,13 +744,94 @@ class ChatBody(BaseModel):
 
 
 TUTOR_SYSTEM = (
-    "You are Quest, a friendly stock-market tutor inside a beginner learning app called TradeQuest. "
+    "You are Quest, a friendly stock-market tutor inside a beginner learning app called Qapilo. "
     "Explain investing and stock concepts in plain, simple English for total beginners. "
     "Keep answers concise (2-5 short paragraphs max), use relatable analogies, and avoid jargon "
     "unless you define it. Never give personalized financial advice or specific buy/sell "
-    "recommendations — remind users you're educational only when they ask what to buy. "
+    "recommendations. "
+    "You may be given a 'LIVE DATA' section with current stock prices and recent news snippets — "
+    "when present, use it to answer questions about current prices, recent events, or IPOs, and "
+    "mention the figures/sources naturally. If asked about something not in the LIVE DATA and you "
+    "are unsure of the latest facts, say so rather than guessing. "
+    "ALWAYS end any answer that touches on specific stocks, prices, buying/selling, or market "
+    "predictions with a brief italic disclaimer on its own line: "
+    "'_Educational only — not financial advice._' (translate the disclaimer to the user's language). "
     "Stay on topics related to stocks, markets, personal finance and investing basics."
 )
+
+# Keywords that indicate the user wants current / real-time information.
+_REALTIME_HINTS = (
+    "price", "current", "now", "today", "latest", "recent", "news", "ipo", "earnings",
+    "quote", "worth", "2024", "2025", "2026", "this week", "this year", "trading at",
+    "how much", "market cap", "up or down", "performing",
+)
+
+
+async def tavily_news(query: str, max_results: int = 5):
+    """Fetch fresh web/news snippets from Tavily. Returns a list of {title,url,content}."""
+    if not TAVILY_KEY:
+        return []
+    try:
+        async with httpx.AsyncClient(timeout=15) as hc:
+            r = await hc.post(
+                "https://api.tavily.com/search",
+                headers={"Authorization": f"Bearer {TAVILY_KEY}"},
+                json={
+                    "query": query, "topic": "news", "search_depth": "basic",
+                    "time_range": "month", "max_results": max_results,
+                    "include_answer": False, "include_raw_content": False,
+                },
+            )
+        return r.json().get("results", []) if r.status_code == 200 else []
+    except Exception as e:
+        logger.warning(f"Tavily search failed: {e}")
+        return []
+
+
+def _detect_symbols(text: str):
+    """Find stock symbols/company names from our universe mentioned in the text."""
+    tokens = set(re.findall(r"[A-Za-z]+", text.upper()))
+    low = text.lower()
+    found = []
+    for s in STOCKS:
+        first_word = s["name"].split()[0].lower()
+        name_hit = len(first_word) > 3 and re.search(r"\b" + re.escape(first_word) + r"\b", low)
+        if s["symbol"] in tokens or name_hit:
+            found.append(s["symbol"])
+    return found[:4]
+
+
+async def gather_realtime_context(text: str) -> str:
+    """Build a LIVE DATA block with current quotes and recent news when the
+    question looks like it needs up-to-date information."""
+    low = text.lower()
+    wants_realtime = any(h in low for h in _REALTIME_HINTS)
+    symbols = _detect_symbols(text)
+    if not wants_realtime and not symbols:
+        return ""
+
+    parts = []
+    if symbols:
+        quotes = await asyncio.gather(*[finnhub_quote(sym) for sym in symbols])
+        lines = [
+            f"- {q['symbol']}: ${q['price']} ({'+' if q['change'] >= 0 else ''}{q['change']}, "
+            f"{q['change_pct']}%) [source: {q['source']}]"
+            for q in quotes
+        ]
+        parts.append("Current stock prices:\n" + "\n".join(lines))
+
+    if wants_realtime:
+        results = await tavily_news(text)
+        if results:
+            news = "\n".join(
+                f"- {r.get('title','')}: {(r.get('content') or '')[:280]} ({r.get('url','')})"
+                for r in results
+            )
+            parts.append("Recent news snippets:\n" + news)
+
+    if not parts:
+        return ""
+    return "LIVE DATA (use this for current facts):\n" + "\n\n".join(parts) + "\n\n"
 
 
 async def tutor_used_today(user_id: str) -> int:
@@ -707,7 +887,13 @@ async def tutor_chat(body: ChatBody, user: dict = Depends(get_current_user)):
     for m in recent:
         who = "Student" if m["role"] == "user" else "Tutor"
         transcript += f"{who}: {m['content']}\n"
-    prompt = (f"Recent conversation:\n{transcript}\n" if transcript else "") + f"Student: {text}"
+
+    live_context = await gather_realtime_context(text)
+    prompt = (
+        (f"Recent conversation:\n{transcript}\n" if transcript else "")
+        + live_context
+        + f"Student: {text}"
+    )
 
     chat = LlmChat(
         api_key=EMERGENT_LLM_KEY,
@@ -770,7 +956,7 @@ async def ensure_plan() -> str:
     headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
     async with httpx.AsyncClient(timeout=30) as hc:
         pr = await hc.post(f"{PAYPAL_BASE}/v1/catalogs/products", headers=headers, json={
-            "name": "TradeQuest Pro",
+            "name": "Qapilo Pro",
             "description": "Unlimited AI Tutor and advanced stock lessons",
             "type": "SERVICE", "category": "EDUCATIONAL_AND_TEXTBOOKS",
         })
@@ -781,7 +967,7 @@ async def ensure_plan() -> str:
 
         plan_body = {
             "product_id": product_id,
-            "name": "TradeQuest Pro Monthly",
+            "name": "Qapilo Pro Monthly",
             "description": f"7-day free trial, then ${PRO_PRICE}/month",
             "billing_cycles": [
                 {
@@ -850,9 +1036,9 @@ async def subscription_create(body: SubscribeBody, request: Request,
             json={
                 "plan_id": plan_id,
                 "subscriber": {"email_address": user.get("email"),
-                               "name": {"given_name": user.get("name") or "TradeQuest", "surname": "User"}},
+                               "name": {"given_name": user.get("name") or "Qapilo", "surname": "User"}},
                 "application_context": {
-                    "brand_name": "TradeQuest",
+                    "brand_name": "Qapilo",
                     "user_action": "SUBSCRIBE_NOW",
                     "return_url": return_url,
                     "cancel_url": cancel_url,
@@ -879,7 +1065,7 @@ async def subscription_return():
     align-items:center;justify-content:center;text-align:center;margin:0}
     .c{max-width:320px;padding:24px}.d{width:64px;height:64px;border-radius:16px;background:#10B981;
     margin:0 auto 16px}</style></head><body><div class="c"><div class="d"></div>
-    <h2>All set!</h2><p>You can close this window and return to TradeQuest.</p></div></body></html>"""
+    <h2>All set!</h2><p>You can close this window and return to Qapilo.</p></div></body></html>"""
     return HTMLResponse(content=html)
 
 

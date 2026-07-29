@@ -1,0 +1,43 @@
+{
+  "summary": "Qapilo iteration 6 (rebrand + 50u/150l curriculum + endless Practice + AI-Tutor live context + Watchlist widget). Backend: 15/15 pytest in /app/backend/tests/test_iteration_6_qapilo.py PASS. AUTH: signup/login/accept-terms all healthy; new users get is_pro=true via 7-day trial; wrong-password rejected. CURRICULUM: GET /api/curriculum?lang=en returns 50 units, 150 lessons, each unit has tier 1-5 and 3 lessons; units u21..u50 have pro=true and u1..u20 have pro=false (regardless of trial state); DE and ES localized titles differ from EN on ALL 50 units. Trial user has pro_locked=false everywhere (as expected). LESSON: GET /api/lessons/l1 returns 3 cards + 4 questions in en/de/es with identical option counts; POST /api/lessons/l1/complete awards XP (perfect run gives base_xp scaled, first_time=true, l1 added to completed_lessons). PRACTICE: GET /api/practice returns 5 questions each with q/options(exactly 4)/answer(int)/tier(1-5) + reward_xp + tier + max_tier + practice_level; DE localization keeps 4 options; POST /api/practice/complete awards XP, bumps daily_xp and streak. TUTOR: POST /api/tutor/chat with 'What is the current price of Apple (AAPL) today?' returns a reply containing digits (live price from Finnhub) AND 'not financial advice / educational only' disclaimer as required. General non-realtime question ('what is a stock?') also succeeds. Frontend (390x844, fresh signup uit6_<hex>@qapilo.app + agreement): AUTH typing regression FIXED — name/email/password TextInputs all accepted typing (input_value read back matched typed strings). Agreement gate rendered and 'Agree & Continue' progressed to Learn tab. Learn tab shows: Daily-goal bar, 'Endless Practice' CTA (testID practice-cta), and units with 'LEVEL N · Beginner/Foundation/Intermediate/…' tier labels + winding node path (Money Made Simple / What Is Investing? etc.). Tapping practice-cta opened the practice quiz which rendered 4 practice-option-i buttons; answering advanced through questions (verified Q3-of-5 progress bar). Profile tab loaded (T6 Tester header, 'Pro Trial Active — 7 days of free Pro left', Level 1, 0 XP, 0/150 lessons, and Watchlist widget with empty state prompting to star stocks). Language switcher visible in Learn header. All tested testIDs resolved.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "auth.tsx (and elsewhere)", "issue": "Console warning: 'props.pointerEvents is deprecated. Use style.pointerEvents'. Appears twice during signup + agreement. Non-blocking but should be migrated. Reference: /app/frontend/app/auth.tsx"}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration_6_qapilo.py",
+    "/app/test_reports/pytest/pytest_iteration_6.xml"
+  ],
+  "action_items": [
+    "(Low) Replace `pointerEvents` prop with `style={{ pointerEvents: ... }}` on the affected View(s) — currently emits a React Native deprecation warning during auth + agreement flows.",
+    "(Carried over from it_5) Disambiguate testIDs on Explore vs Stock-detail star buttons — main agent's job (unchanged this iteration).",
+    "(Optional refactor) server.py is now ~1148 lines; consider splitting routers (auth, curriculum, practice, tutor, watchlist, paypal) for maintainability."
+  ],
+  "critical_code_review_comments": [
+    "TouchableWithoutFeedback wrapper has been removed from /app/frontend/app/auth.tsx — only Pressable and TextInput remain, which is why typing now works. Regression fix VERIFIED via Playwright input_value reads.",
+    "GET /api/curriculum unconditionally sets pro=true for u21..u50 via `u['id'] in PRO_UNITS`, independent of the user's is_pro flag — spec compliant. `pro_locked` is per-lesson and correctly false for trial users.",
+    "curriculum.py gracefully skips missing units — currently ALL 50 are present in curriculum_data.json (validated: 50 units, 150 lessons, DE+ES translations for each).",
+    "AI Tutor real-time context (server.py:804 gather_realtime_context) triggers on price/quote/today/now/etc. keywords OR symbol detection; live Finnhub quote is injected into the prompt and Claude naturally includes the number in its reply. Disclaimer is enforced via TUTOR_SYSTEM prompt — verified appearing in reply text.",
+    "Tavily is dormant (TAVILY_API_KEY empty) — tavily_news() returns [] silently; tutor still works via Finnhub price context alone. Matches expected behavior per user note.",
+    "Practice endpoint uses stable question de-duplication (used-set on q text) and enforces exactly 5 questions with exactly 4 options each (verified in backend tests)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration_6_qapilo.py (new)",
+    "/app/test_reports/pytest/pytest_iteration_6.xml (new)",
+    "/app/test_reports/iteration_6.json (new)"
+  ],
+  "success_rate": {
+    "backend": "100% (15/15 iteration_6 pytest)",
+    "frontend": "100% of exercised flows: signup + typing regression + agreement + Learn (tier labels + Endless Practice CTA + node path) + Practice quiz (4 options + answer submit + progression) + Profile (Pro Trial Active + 0/150 lessons + Watchlist empty state)"
+  },
+  "seed_data_creation": "Ephemeral users only (TEST_it6a_*/TEST_it6b_*/TEST_it6auth_* @qapilo.app via pytest, uit6_* @qapilo.app via Playwright). No production data touched.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "AUTH testIDs: auth-heading, toggle-auth-mode, name-input, email-input, password-input, auth-submit-button, google-login-button, auth-disclaimer-link. Agreement: agree-checkbox, agree-continue-button, decline-button. Learn tab: practice-cta, header-streak, header-xp, trial-nudge-banner, lesson-node-{id}, pro-pill-{id}, current-lesson-pill. Practice: practice-loading, practice-option-{i} (i=0..3), practice-action-button, practice-again, practice-back, practice-close. Profile: profile-name, pro-banner, stat-{label}, watchlist-see-all, watchlist-empty, profile-watch-{SYMBOL}, badge-{id}, language-row, disclaimer-link, logout-button. BASE_URL for pytest MUST be exported as EXPO_PUBLIC_BACKEND_URL (test file uses os.environ[...]). AI-Tutor tests take ~5-8s each because they call Claude — allow ≥90s timeout per request. Finnhub API key is set; live prices returned. TAVILY_API_KEY intentionally empty — do NOT test news snippets, only price disclaimer.",
+  "rca_of_issue": "N/A — all requested features working. AUTH typing regression (root cause: previous TouchableWithoutFeedback wrapper around form area was blocking TextInput touch events on device/web) is confirmed fixed at /app/frontend/app/auth.tsx (only Pressable + TextInput remain). Verified end-to-end by typing into all 3 fields via Playwright and reading input_value back."
+}

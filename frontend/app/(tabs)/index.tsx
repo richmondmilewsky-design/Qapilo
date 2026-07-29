@@ -30,7 +30,7 @@ type Lesson = {
   perfect: boolean;
   pro_locked: boolean;
 };
-type Unit = { id: string; title: string; subtitle: string; color: string; lessons: Lesson[] };
+type Unit = { id: string; title: string; subtitle: string; color: string; tier: number; lessons: Lesson[] };
 
 const OFFSETS = [0, 52, 74, 52, 0, -52, -74, -52];
 
@@ -153,9 +153,30 @@ export default function LearnScreen() {
           </Pressable>
         )}
 
+        <Pressable
+          testID="practice-cta"
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            router.push("/practice");
+          }}
+          style={styles.practiceCta}
+        >
+          <View style={styles.practiceIcon}>
+            <MaterialCommunityIcons name="dumbbell" size={24} color={colors.onBrand} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.practiceTitle}>{t("learn.practiceTitle")}</Text>
+            <Text style={styles.practiceSub}>{t("learn.practiceSub")}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={22} color={colors.muted} />
+        </Pressable>
+
         {units.map((unit) => (
           <View key={unit.id} style={styles.unit}>
             <View style={[styles.unitHeader, { borderLeftColor: unit.color }]}>
+              <Text style={[styles.tierLabel, { color: unit.color }]}>
+                {t("learn.level")} {unit.id.replace("u", "")} · {t(`tier.${unit.tier}` as any)}
+              </Text>
               <Text style={styles.unitTitle}>{unit.title}</Text>
               <Text style={styles.unitSubtitle}>{unit.subtitle}</Text>
             </View>
@@ -303,6 +324,29 @@ const styles = StyleSheet.create({
   dailyRow: { flexDirection: "row", justifyContent: "space-between", marginTop: spacing.sm },
   dailyText: { fontFamily: fonts.bodyMed, fontSize: 12, color: colors.muted },
   unit: { marginBottom: spacing.xl },
+  tierLabel: { fontFamily: fonts.displayMed, fontSize: 11, letterSpacing: 1.5, marginBottom: 2 },
+  practiceCta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.xl,
+    backgroundColor: colors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: colors.brandDark,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+  },
+  practiceIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.md,
+    backgroundColor: colors.brand,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  practiceTitle: { fontFamily: fonts.display, fontSize: 20, color: colors.onSurface },
+  practiceSub: { fontFamily: fonts.body, fontSize: 12, color: colors.muted, marginTop: 1 },
   nudge: {
     flexDirection: "row",
     alignItems: "center",

@@ -50,4 +50,6 @@ See `/app/memory/test_credentials.md` (demo@tradequest.app / demo123).
 
 ## Notes
 - Live stock quotes come from **Finnhub** (FINNHUB_API_KEY set; free tier 60 calls/min). Both the Stocks list and detail screens show live prices with a 45s TTL cache. Price charts use a deterministic simulated history since Finnhub's free tier excludes candle data. Falls back to simulated quotes if the key is unset/request fails.
+- **Curriculum:** 50 units / 150 lessons across 5 difficulty tiers (Beginner→Pro), fully trilingual (EN/DE/ES). Generated via Claude (generate_curriculum.py) into curriculum_data.json, loaded by curriculum.py. Free tiers = u1-u20; Pro = u21-u50. Endless Practice mode (/practice) recycles questions with rising difficulty + scaled XP.
+- **AI Tutor real-time:** injects live Finnhub prices (auto-detects tickers/company names) and, when TAVILY_API_KEY is set, recent Tavily news snippets, then Claude answers with a mandatory "not financial advice" disclaimer. Works without Tavily (prices + disclaimer) — news activates once key added.
 - Google OAuth cannot be automated in tests (Emergent-managed).
