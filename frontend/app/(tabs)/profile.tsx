@@ -69,7 +69,7 @@ export default function ProfileScreen() {
       const data = await apiRequest<any>("/account/export");
       setExportText(JSON.stringify(data, null, 2));
     } catch {
-      Alert.alert("Error", "Could not export your data. Please try again.");
+      Alert.alert(t("common.error"), t("profile.exportError"));
     } finally {
       setExporting(false);
     }
@@ -90,7 +90,7 @@ export default function ProfileScreen() {
               await logout();
               router.replace("/auth");
             } catch {
-              Alert.alert("Error", "Could not delete your account. Please try again.");
+              Alert.alert(t("common.error"), t("profile.deleteError"));
             }
           },
         },
