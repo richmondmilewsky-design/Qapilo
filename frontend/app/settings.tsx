@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, Modal, ActivityIndicator, Alert, Linking } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Modal, ActivityIndicator, Alert, Linking, Platform } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -9,6 +9,19 @@ import { useI18n } from "@/src/i18n/I18nContext";
 import { colors, fonts, radius, spacing } from "@/src/theme/theme";
 
 const CONTACT = "privacy@qapilo.app";
+
+// Cross-platform confirm: RN Alert on native, window.confirm on web (Alert with
+// multiple buttons is a no-op on react-native-web).
+function confirmAction(title: string, message: string, confirmLabel: string, cancelLabel: string, onConfirm: () => void) {
+  if (Platform.OS === "web") {
+    if (typeof window !== "undefined" && window.confirm(`${title}\n\n${message}`)) onConfirm();
+    return;
+  }
+  Alert.alert(title, message, [
+    { text: cancelLabel, style: "cancel" },
+    { text: confirmLabel, style: "destructive", onPress: onConfirm },
+  ]);
+}
 
 function Row({ icon, label, onPress, testID, danger, right, loading }: any) {
   return (
@@ -43,39 +56,33 @@ export default function SettingsScreen() {
   };
 
   const clearChat = () => {
-    Alert.alert(t("profile.clearChatTitle"), t("profile.clearChatMsg"), [
-      { text: t("common.cancel"), style: "cancel" },
-      {
-        text: t("profile.clearChatConfirm"),
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await apiRequest("/tutor/history", { method: "DELETE" });
-          } catch {
-            Alert.alert(t("common.error"), t("profile.clearChatError"));
-          }
-        },
-      },
-    ]);
+    confirmAction(
+      t("profile.clearChatTitle"), t("profile.clearChatMsg"),
+      t("profile.clearChatConfirm"), t("common.cancel"),
+      async () => {
+        try {
+          await apiRequest("/tutor/history", { method: "DELETE" });
+        } catch {
+          Alert.alert(t("common.error"), t("profile.clearChatError"));
+        }
+      }
+    );
   };
 
   const confirmDelete = () => {
-    Alert.alert(t("profile.deleteTitle"), t("profile.deleteMsg"), [
-      { text: t("common.cancel"), style: "cancel" },
-      {
-        text: t("profile.deleteConfirm"),
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await apiRequest("/account", { method: "DELETE" });
-            await logout();
-            router.replace("/auth");
-          } catch {
-            Alert.alert(t("common.error"), t("profile.deleteError"));
-          }
-        },
-      },
-    ]);
+    confirmAction(
+      t("profile.deleteTitle"), t("profile.deleteMsg"),
+      t("profile.deleteConfirm"), t("common.cancel"),
+      async () => {
+        try {
+          await apiRequest("/account", { method: "DELETE" });
+          await logout();
+          router.replace("/auth");
+        } catch {
+          Alert.alert(t("common.error"), t("profile.deleteError"));
+        }
+      }
+    );
   };
 
   const doLogout = async () => {
