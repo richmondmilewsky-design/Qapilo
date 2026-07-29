@@ -1245,6 +1245,28 @@ async def account_delete(user: dict = Depends(get_current_user)):
     return {"deleted": True}
 
 
+class UpdateAccountBody(BaseModel):
+    name: str
+
+
+@api.patch("/account")
+async def account_update(body: UpdateAccountBody, user: dict = Depends(get_current_user)):
+    """GDPR right to rectification: let the user correct their display name."""
+    name = body.name.strip()[:60]
+    if not name:
+        raise HTTPException(status_code=400, detail=L("message_empty"))
+    await db.users.update_one({"user_id": user["user_id"]}, {"$set": {"name": name}})
+    updated = await db.users.find_one({"user_id": user["user_id"]})
+    return {"user": public_user(updated)}
+
+
+@api.delete("/tutor/history")
+async def clear_tutor_history(user: dict = Depends(get_current_user)):
+    """Delete all of the user's AI Tutor chat messages."""
+    res = await db.chat_messages.delete_many({"user_id": user["user_id"]})
+    return {"deleted": True, "count": res.deleted_count}
+
+
 app.include_router(api)
 
 

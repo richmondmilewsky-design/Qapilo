@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, RefreshControl, Modal, ActivityIndicator, Alert } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, RefreshControl } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
@@ -19,17 +19,15 @@ type Badge = { id: string; name: string; desc: string; icon: string; earned: boo
 type WatchStock = { symbol: string; name: string; logo: string; price: number; change_pct: number; in_watchlist: boolean };
 
 export default function ProfileScreen() {
-  const { user, logout, refresh } = useAuth();
+  const { user, refresh } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { t, locale, openPicker } = useI18n();
+  const { t } = useI18n();
   const [badges, setBadges] = useState<Badge[]>([]);
   const [total, setTotal] = useState(15);
   const [watchlist, setWatchlist] = useState<WatchStock[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [exporting, setExporting] = useState(false);
-  const [exportText, setExportText] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -56,47 +54,6 @@ export default function ProfileScreen() {
     setRefreshing(true);
     await Promise.all([load(), refresh()]);
     setRefreshing(false);
-  };
-
-  const doLogout = async () => {
-    await logout();
-    router.replace("/auth");
-  };
-
-  const exportData = async () => {
-    setExporting(true);
-    try {
-      const data = await apiRequest<any>("/account/export");
-      setExportText(JSON.stringify(data, null, 2));
-    } catch {
-      Alert.alert(t("common.error"), t("profile.exportError"));
-    } finally {
-      setExporting(false);
-    }
-  };
-
-  const confirmDelete = () => {
-    Alert.alert(
-      t("profile.deleteTitle"),
-      t("profile.deleteMsg"),
-      [
-        { text: t("common.cancel"), style: "cancel" },
-        {
-          text: t("profile.deleteConfirm"),
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await apiRequest("/account", { method: "DELETE" });
-              await logout();
-              router.replace("/auth");
-            } catch {
-              Alert.alert(t("common.error"), t("profile.deleteError"));
-            }
-          },
-        },
-      ],
-      { cancelable: true }
-    );
   };
 
   if (loading || !user) return <Loading testID="profile-loading" />;
@@ -256,57 +213,13 @@ export default function ProfileScreen() {
             ))}
           </View>
 
-          <Pressable testID="language-row" onPress={openPicker} style={[styles.linkRow, { marginTop: spacing.xxl }]}>
-            <Ionicons name="globe-outline" size={20} color={colors.onSurfaceSecondary} />
-            <Text style={styles.linkText}>{t("profile.language")}</Text>
-            <Text style={styles.langValue}>{locale.toUpperCase()}</Text>
+          <Pressable testID="settings-row" onPress={() => router.push("/settings")} style={[styles.linkRow, { marginTop: spacing.xxl }]}>
+            <Ionicons name="settings-outline" size={20} color={colors.onSurfaceSecondary} />
+            <Text style={styles.linkText}>{t("profile.settings")}</Text>
             <Ionicons name="chevron-forward" size={18} color={colors.muted} />
-          </Pressable>
-
-          <Pressable testID="disclaimer-link" onPress={() => router.push("/disclaimer")} style={[styles.linkRow, { marginTop: spacing.md }]}>
-            <Ionicons name="document-text-outline" size={20} color={colors.onSurfaceSecondary} />
-            <Text style={styles.linkText}>{t("profile.disclaimer")}</Text>
-            <Ionicons name="chevron-forward" size={18} color={colors.muted} />
-          </Pressable>
-
-          <Pressable testID="privacy-link" onPress={() => router.push("/privacy")} style={[styles.linkRow, { marginTop: spacing.md }]}>
-            <Ionicons name="shield-checkmark-outline" size={20} color={colors.onSurfaceSecondary} />
-            <Text style={styles.linkText}>{t("profile.privacy")}</Text>
-            <Ionicons name="chevron-forward" size={18} color={colors.muted} />
-          </Pressable>
-
-          <Pressable testID="export-data-row" onPress={exportData} style={[styles.linkRow, { marginTop: spacing.md }]}>
-            <Ionicons name="download-outline" size={20} color={colors.onSurfaceSecondary} />
-            <Text style={styles.linkText}>{t("profile.exportData")}</Text>
-            {exporting ? <ActivityIndicator size="small" color={colors.muted} /> : <Ionicons name="chevron-forward" size={18} color={colors.muted} />}
-          </Pressable>
-
-          <Pressable testID="delete-account-button" onPress={confirmDelete} style={styles.logout}>
-            <Ionicons name="trash-outline" size={20} color={colors.error} />
-            <Text style={styles.logoutText}>{t("profile.deleteAccount")}</Text>
-          </Pressable>
-
-          <Pressable testID="logout-button" onPress={doLogout} style={[styles.linkRow, { marginTop: spacing.xs }]}>
-            <Ionicons name="log-out-outline" size={20} color={colors.onSurfaceSecondary} />
-            <Text style={styles.linkText}>{t("profile.logout")}</Text>
           </Pressable>
         </View>
       </ScrollView>
-
-      <Modal visible={!!exportText} transparent animationType="slide" onRequestClose={() => setExportText("")}>
-        <View style={styles.modalBackdrop}>
-          <View style={[styles.modalCard, { paddingBottom: insets.bottom + spacing.lg }]}>
-            <Text style={styles.modalTitle}>{t("profile.exportData")}</Text>
-            <Text style={styles.modalMsg}>{t("profile.exportDone")}</Text>
-            <ScrollView style={styles.exportBox} nestedScrollEnabled>
-              <Text selectable style={styles.exportText}>{exportText}</Text>
-            </ScrollView>
-            <Pressable testID="export-close" onPress={() => setExportText("")} style={styles.modalPrimary}>
-              <Text style={styles.modalPrimaryText}>{t("profile.close")}</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }

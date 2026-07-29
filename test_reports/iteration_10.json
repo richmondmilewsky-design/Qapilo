@@ -1,0 +1,34 @@
+{
+  "summary": "Iteration 10 — Settings screen + doc screens + PATCH /api/account + DELETE /api/tutor/history. Backend: 13/13 pytest passed (test_iteration_10_settings.py). Frontend: Profile → settings-row navigates to /settings; both groups render (Privacy & Data with 10 rows, Preferences with 2 rows); all expected testIDs present (settings-back, row-privacy, row-terms, row-disclaimer, row-ai, row-market, row-export, row-correct, row-clear-chat, row-contact, row-delete, row-language, row-logout). Docs (terms/ai/market/correct) render correctly and localize to DE ('Nutzungsbedingungen', 'Einstellungen', 'Datenschutz & Daten') and ES ('Transparencia de IA'). Correct My Data: input + save works end-to-end — button label flips to 'Saved' and profile-name updates to the new value. Download My Data opens export JSON modal and export-close dismisses it. Privacy Contact row shows 'privacy@qapilo.app'. Regression: profile still shows stats/watchlist/badges/pro-trial banner.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "Clear AI Chat History & Delete Account confirm dialogs on web preview", "issue": "React Native Alert.alert with multiple buttons does not render any dialog on Expo web (known RN Web limitation) — clicking row-clear-chat / row-delete produces no visible confirm and no destructive action fires on web. Underlying API endpoints work (verified via pytest). Should work fine on native iOS/Android; not a code defect in this feature.", "affected_testIDs": ["row-clear-chat", "row-delete"]}
+    ],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration_10_settings.py",
+    "/app/test_reports/pytest/pytest_iteration_10.xml"
+  ],
+  "action_items": [
+    "None blocking. Optional: if E2E web confirm of destructive rows is desired, consider a cross-platform confirm shim (e.g., window.confirm on web) for row-clear-chat and row-delete. Native flow is unaffected."
+  ],
+  "critical_code_review_comments": [
+    "PATCH /api/account and DELETE /api/tutor/history are correctly registered on the /api router BEFORE app.include_router(api) — verified in server.py (lines 1252, 1263, 1270).",
+    "PATCH /api/account trims whitespace and truncates to 60 chars; empty payload correctly returns 400 with localized message.",
+    "settings.tsx cleanly composes Row primitives with testIDs; no HTML tags, all text wrapped in <Text>, StyleSheet.create used.",
+    "doc.tsx uses KeyboardAvoidingView for the Correct My Data input; save is disabled while pending and shows 'Saved' state after success."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration_10_settings.py (new)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100% (all testable web flows)"},
+  "seed_data_creation": "Throwaway users created via UI signup (uitest_*@example.com) and via pytest (_signup fixture). pytest fixture deletes its user on teardown; UI test users remain but are harmless (name overridden to 'Corrected UI Name' / 'Regressor').",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend signup requires a deliverable domain (pydantic EmailStr rejects '@qapilo.test' etc.); use '@example.com' for TEST_ prefixed accounts. pytest.ini adds xdist by default — pass -o addopts='' when needed. Alert.alert with multiple buttons is a no-op on Expo web — do not rely on it in web-only tests; test destructive flows via the backend endpoints directly.",
+  "rca_of_issue": "N/A — no bugs found."
+}
