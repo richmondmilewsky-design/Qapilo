@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Pressable,
   ActivityIndicator,
   KeyboardAvoidingView,
+  Modal,
   Platform,
 } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
@@ -15,8 +16,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { apiRequest } from "@/src/api/client";
+import { storage } from "@/src/utils/storage";
 import { useI18n } from "@/src/i18n/I18nContext";
 import { colors, fonts, radius, spacing } from "@/src/theme/theme";
+
+const AI_NOTICE_KEY = "qapilo_ai_notice_ack";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
@@ -33,6 +37,21 @@ export default function TutorScreen() {
   const [sending, setSending] = useState(false);
   const [remaining, setRemaining] = useState<number | null>(null);
   const [isPro, setIsPro] = useState(true);
+  const [noticeVisible, setNoticeVisible] = useState(false);
+  const [dontShow, setDontShow] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const ack = await storage.getItem<boolean>(AI_NOTICE_KEY, false);
+      if (!ack) setNoticeVisible(true);
+    })();
+  }, []);
+
+  const dismissNotice = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (dontShow) await storage.setItem(AI_NOTICE_KEY, true);
+    setNoticeVisible(false);
+  };
 
   const load = useCallback(async () => {
     try {
@@ -201,6 +220,27 @@ export default function TutorScreen() {
           </View>
         )}
       </KeyboardAvoidingView>
+
+      <Modal visible={noticeVisible} transparent animationType="fade" onRequestClose={dismissNotice}>
+        <View style={styles.noticeBackdrop}>
+          <View style={styles.noticeCard}>
+            <View style={styles.noticeIcon}>
+              <MaterialCommunityIcons name="robot-happy" size={26} color={colors.onBrand} />
+            </View>
+            <Text style={styles.noticeTitle}>{t("tutor.noticeTitle")}</Text>
+            <Text style={styles.noticeBody}>{t("tutor.noticeBody")}</Text>
+            <Pressable testID="ai-notice-dontshow" onPress={() => setDontShow((v) => !v)} style={styles.noticeCheckRow}>
+              <View style={[styles.noticeCheckbox, dontShow && styles.noticeCheckboxOn]}>
+                {dontShow && <Ionicons name="checkmark" size={15} color={colors.onBrand} />}
+              </View>
+              <Text style={styles.noticeCheckLabel}>{t("tutor.noticeDontShow")}</Text>
+            </Pressable>
+            <Pressable testID="ai-notice-continue" onPress={dismissNotice} style={styles.noticeButton}>
+              <Text style={styles.noticeButtonText}>{t("tutor.noticeContinue")}</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -314,4 +354,15 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
   },
   limitText: { flex: 1, fontFamily: fonts.bodySemi, fontSize: 13, color: colors.onAmber },
+  noticeBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "center", padding: spacing.lg },
+  noticeCard: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.lg },
+  noticeIcon: { width: 52, height: 52, borderRadius: radius.md, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center", marginBottom: spacing.md },
+  noticeTitle: { fontFamily: fonts.display, fontSize: 24, color: colors.onSurface, marginBottom: spacing.sm },
+  noticeBody: { fontFamily: fonts.body, fontSize: 14, color: colors.onSurfaceSecondary, lineHeight: 21, marginBottom: spacing.lg },
+  noticeCheckRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: spacing.sm, marginBottom: spacing.sm },
+  noticeCheckbox: { width: 24, height: 24, borderRadius: radius.sm, borderWidth: 2, borderColor: colors.borderStrong, alignItems: "center", justifyContent: "center" },
+  noticeCheckboxOn: { backgroundColor: colors.brand, borderColor: colors.brand },
+  noticeCheckLabel: { fontFamily: fonts.bodyMed, fontSize: 14, color: colors.onSurface },
+  noticeButton: { backgroundColor: colors.brand, borderRadius: radius.md, paddingVertical: spacing.md, alignItems: "center" },
+  noticeButtonText: { fontFamily: fonts.bodySemi, fontSize: 15, color: colors.onBrand },
 });
