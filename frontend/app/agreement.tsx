@@ -8,14 +8,15 @@ import { useAuth } from "@/src/context/AuthContext";
 import { useI18n } from "@/src/i18n/I18nContext";
 import { apiRequest } from "@/src/api/client";
 import { PrimaryButton } from "@/src/components/ui";
-import { DISCLAIMER_SECTIONS } from "@/src/constants/disclaimer";
+import { getDisclaimer } from "@/src/constants/disclaimer";
 import { colors, fonts, radius, spacing } from "@/src/theme/theme";
 
 export default function Agreement() {
   const { setUser, logout } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const disclaimer = getDisclaimer(locale);
   const [checked, setChecked] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -52,7 +53,7 @@ export default function Agreement() {
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xl }}
         showsVerticalScrollIndicator={true}
       >
-        {DISCLAIMER_SECTIONS.map((s) => (
+        {disclaimer.sections.map((s) => (
           <View key={s.heading} style={styles.section}>
             <Text style={styles.heading}>{s.heading}</Text>
             <Text style={styles.body}>{s.body}</Text>

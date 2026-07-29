@@ -1,0 +1,40 @@
+{
+  "summary": "Iteration 7 — Localization fix verified. Backend pytest /app/backend/tests/test_iteration_7_localization.py: 7/7 PASS in 22s. Frontend Playwright on mobile viewport (390x844): DE/ES/EN disclaimer bodies fully translated on both the standalone /disclaimer screen (opened via auth-disclaimer-link) and the signup Agreement gate; German shows headings 'Nur zu Bildungszwecken', 'Keine Finanzberatung', 'Keine Anlageempfehlungen'; Spanish shows 'Solo con fines educativos', 'No es asesoramiento financiero'; English bodies not leaking into DE/ES. Brand reads 'Qapilo' everywhere (no 'TradeQuest' residue on disclaimer / agreement / auth). Tutor tab suggestion chips fully localized — all 4/4 chips in German (Kurs von Apple / SpaceX-Börsengang / KGV / Unterschied zwischen ETFs und Aktien) and all 4/4 in Spanish (precio actual de Apple / salida a bolsa de SpaceX / ratio PER / diferencia entre los ETF). Backend /api/tutor/chat replies come back in the requested language and the disclaimer line is translated (no residual 'not financial advice' string in DE/ES replies) — confirmed via keyword-density regex on the LLM reply. Regression: /api/curriculum, /api/lessons/l1 and /api/practice honour lang=de|es (title/questions differ from EN, still 4 options each). Language switcher on Learn header + auth screen + profile row all continue to work without breaking navigation. Only a low-severity console warning remained (props.pointerEvents deprecation, carried over from it_6).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "auth.tsx (and elsewhere)", "issue": "Console warning: 'props.pointerEvents is deprecated. Use style.pointerEvents'. Still emitted once during signup->agreement transition. Non-blocking, unchanged from iteration_6. Reference: /app/frontend/app/auth.tsx"}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration_7_localization.py",
+    "/app/test_reports/pytest/pytest_iteration_7.xml"
+  ],
+  "action_items": [
+    "(Low, carry-over) Replace `pointerEvents` prop with `style={{ pointerEvents: ... }}` on the offending View — still logs a deprecation warning during auth+agreement.",
+    "(Optional) Consider adding a testID like `disclaimer-heading` and `disclaimer-section` in disclaimer.tsx / agreement.tsx to make future localization assertions selector-based rather than page.content()-string-based."
+  ],
+  "critical_code_review_comments": [
+    "getDisclaimer(locale) in /app/frontend/src/constants/disclaimer.ts is the single source of truth for the localized disclaimer body — used by BOTH /app/frontend/app/disclaimer.tsx and /app/frontend/app/agreement.tsx (verified). Falls back to EN for unknown locales.",
+    "Tutor suggestion chips are now derived from t('tutor.ex1..ex4') via i18n keys (tutor.tsx:29). Chips update live when locale changes because they are built inside the component render — verified switching DE↔ES in the same session updates the visible chip text.",
+    "Backend TUTOR_SYSTEM prompt (server.py:746-760) instructs the LLM to translate the italic 'Educational only — not financial advice.' disclaimer to the user's language, plus an appended 'Always reply in <LangName>' suffix (server.py:901). Reply-language + translated disclaimer verified by keyword regex in test_tutor_reply_german / test_tutor_reply_spanish.",
+    "No 'TradeQuest' string found on disclaimer / agreement / auth screens in DE, ES or EN — the rebrand is complete for these surfaces."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration_7_localization.py (new)",
+    "/app/test_reports/pytest/pytest_iteration_7.xml (new)",
+    "/app/test_reports/iteration_7.json (new)"
+  ],
+  "success_rate": {
+    "backend": "100% (7/7 iteration_7 pytest)",
+    "frontend": "100% of exercised flows: language switching + disclaimer body in DE/ES/EN on both auth link and signup agreement gate + tutor chips DE 4/4, ES 4/4 + Qapilo brand assertions + signup→agreement→tabs navigation intact"
+  },
+  "seed_data_creation": "Ephemeral pytest user TEST_it7_*@qapilo.app + Playwright user uit7_*@qapilo.app. No production data touched.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Localization contract: (a) Disclaimer body — always from getDisclaimer(locale) in /app/frontend/src/constants/disclaimer.ts (keys en/de/es). Do NOT re-add English strings inside disclaimer.tsx/agreement.tsx. (b) Tutor chips — always from t('tutor.ex1..ex4') keys. (c) Tutor backend — POST /api/tutor/chat MUST include {message, lang} where lang ∈ en|de|es; the LLM is instructed to reply fully in that language and translate the disclaimer line. Regex heuristics used in test_iteration_7_localization.py look for ≥3 German/Spanish function words in the reply AND assert 'not financial advice' English phrase is absent. If Emergent LLM key rotates or Claude model changes, tutor LLM tests could become flaky — allow retries. Screenshots saved to /tmp/agreement_de.png, /tmp/tutor_de.png, /tmp/tutor_es.png.",
+  "rca_of_issue": "Original bug: disclaimer body & tutor chips were hardcoded English regardless of locale. Fix (already implemented by E1 before this iteration): (1) new /app/frontend/src/constants/disclaimer.ts exposing getDisclaimer(lang) with full en/de/es dictionaries, imported by both disclaimer.tsx and agreement.tsx; (2) tutor.tsx SUGGESTIONS array now built from t('tutor.ex1..ex4'); (3) backend TUTOR_SYSTEM prompt asks the LLM to translate the italic disclaimer line to the requested language + explicit 'Always reply in <Lang>' suffix on the system message. All three legs verified end-to-end in this iteration."
+}

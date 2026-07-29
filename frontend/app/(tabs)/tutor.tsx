@@ -20,18 +20,13 @@ import { colors, fonts, radius, spacing } from "@/src/theme/theme";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
-const SUGGESTIONS = [
-  "What is the current price of Apple (AAPL)?",
-  "Any latest news on the SpaceX IPO?",
-  "Explain the P/E ratio like I'm five",
-  "What's the difference between ETFs and stocks?",
-];
 
 export default function TutorScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t, locale } = useI18n();
   const listRef = useRef<FlatList>(null);
+  const SUGGESTIONS = [t("tutor.ex1"), t("tutor.ex2"), t("tutor.ex3"), t("tutor.ex4")];
 
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");

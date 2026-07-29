@@ -3,27 +3,30 @@ import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { DISCLAIMER_INTRO, DISCLAIMER_SECTIONS } from "@/src/constants/disclaimer";
+import { getDisclaimer } from "@/src/constants/disclaimer";
+import { useI18n } from "@/src/i18n/I18nContext";
 import { colors, fonts, spacing } from "@/src/theme/theme";
 
 export default function DisclaimerScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { t, locale } = useI18n();
+  const disclaimer = getDisclaimer(locale);
   return (
     <View style={styles.root}>
       <View style={[styles.topBar, { paddingTop: insets.top + spacing.sm }]}>
         <Pressable testID="disclaimer-back" onPress={() => router.back()} hitSlop={12}>
           <Ionicons name="chevron-back" size={26} color={colors.onSurface} />
         </Pressable>
-        <Text style={styles.topTitle}>Disclaimer</Text>
+        <Text style={styles.topTitle}>{t("agree.title")}</Text>
         <View style={{ width: 26 }} />
       </View>
       <ScrollView
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing.xl }}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.intro}>{DISCLAIMER_INTRO}</Text>
-        {DISCLAIMER_SECTIONS.map((s) => (
+        <Text style={styles.intro}>{disclaimer.intro}</Text>
+        {disclaimer.sections.map((s) => (
           <View key={s.heading} style={styles.section}>
             <Text style={styles.heading}>{s.heading}</Text>
             <Text style={styles.body}>{s.body}</Text>
