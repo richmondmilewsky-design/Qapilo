@@ -8,8 +8,6 @@ import {
   Platform,
   ScrollView,
   Pressable,
-  Keyboard,
-  TouchableWithoutFeedback,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -72,15 +70,15 @@ export default function AuthScreen() {
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-          <ScrollView
-            contentContainerStyle={[
-              styles.scroll,
-              { paddingTop: insets.top + spacing.xxl, paddingBottom: insets.bottom + spacing.xl },
-            ]}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
+        <ScrollView
+          contentContainerStyle={[
+            styles.scroll,
+            { paddingTop: insets.top + spacing.xxl, paddingBottom: insets.bottom + spacing.xl },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          showsVerticalScrollIndicator={false}
+        >
             <View style={styles.langTop}>
               <LanguageButton />
             </View>
@@ -88,7 +86,7 @@ export default function AuthScreen() {
               <View style={styles.logoBadge}>
                 <MaterialCommunityIcons name="chart-line-variant" size={34} color={colors.onBrand} />
               </View>
-              <Text style={styles.brand}>TRADEQUEST</Text>
+              <Text style={styles.brand}>QAPILO</Text>
               <Text style={styles.tagline}>{t("auth.tagline")}</Text>
             </View>
 
@@ -123,6 +121,7 @@ export default function AuthScreen() {
                 onChangeText={setName}
                 style={styles.input}
                 autoCapitalize="words"
+                returnKeyType="next"
               />
             )}
             <TextInput
@@ -135,6 +134,7 @@ export default function AuthScreen() {
               autoCapitalize="none"
               keyboardType="email-address"
               autoCorrect={false}
+              returnKeyType="next"
             />
             <TextInput
               testID="password-input"
@@ -144,6 +144,8 @@ export default function AuthScreen() {
               onChangeText={setPassword}
               style={styles.input}
               secureTextEntry
+              returnKeyType="go"
+              onSubmitEditing={submit}
             />
 
             {error ? (
@@ -187,8 +189,7 @@ export default function AuthScreen() {
               </Text>
               {t("auth.termsEnd")}
             </Text>
-          </ScrollView>
-        </TouchableWithoutFeedback>
+        </ScrollView>
       </KeyboardAvoidingView>
     </View>
   );
