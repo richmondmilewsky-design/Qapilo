@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, RefreshControl } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, RefreshControl, Modal, ActivityIndicator, Alert } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
@@ -28,6 +28,8 @@ export default function ProfileScreen() {
   const [watchlist, setWatchlist] = useState<WatchStock[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportText, setExportText] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -59,6 +61,42 @@ export default function ProfileScreen() {
   const doLogout = async () => {
     await logout();
     router.replace("/auth");
+  };
+
+  const exportData = async () => {
+    setExporting(true);
+    try {
+      const data = await apiRequest<any>("/account/export");
+      setExportText(JSON.stringify(data, null, 2));
+    } catch {
+      Alert.alert("Error", "Could not export your data. Please try again.");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const confirmDelete = () => {
+    Alert.alert(
+      t("profile.deleteTitle"),
+      t("profile.deleteMsg"),
+      [
+        { text: t("common.cancel"), style: "cancel" },
+        {
+          text: t("profile.deleteConfirm"),
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await apiRequest("/account", { method: "DELETE" });
+              await logout();
+              router.replace("/auth");
+            } catch {
+              Alert.alert("Error", "Could not delete your account. Please try again.");
+            }
+          },
+        },
+      ],
+      { cancelable: true }
+    );
   };
 
   if (loading || !user) return <Loading testID="profile-loading" />;
@@ -231,12 +269,44 @@ export default function ProfileScreen() {
             <Ionicons name="chevron-forward" size={18} color={colors.muted} />
           </Pressable>
 
-          <Pressable testID="logout-button" onPress={doLogout} style={styles.logout}>
-            <Ionicons name="log-out-outline" size={20} color={colors.error} />
-            <Text style={styles.logoutText}>{t("profile.logout")}</Text>
+          <Pressable testID="privacy-link" onPress={() => router.push("/privacy")} style={[styles.linkRow, { marginTop: spacing.md }]}>
+            <Ionicons name="shield-checkmark-outline" size={20} color={colors.onSurfaceSecondary} />
+            <Text style={styles.linkText}>{t("profile.privacy")}</Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+          </Pressable>
+
+          <Pressable testID="export-data-row" onPress={exportData} style={[styles.linkRow, { marginTop: spacing.md }]}>
+            <Ionicons name="download-outline" size={20} color={colors.onSurfaceSecondary} />
+            <Text style={styles.linkText}>{t("profile.exportData")}</Text>
+            {exporting ? <ActivityIndicator size="small" color={colors.muted} /> : <Ionicons name="chevron-forward" size={18} color={colors.muted} />}
+          </Pressable>
+
+          <Pressable testID="delete-account-button" onPress={confirmDelete} style={styles.logout}>
+            <Ionicons name="trash-outline" size={20} color={colors.error} />
+            <Text style={styles.logoutText}>{t("profile.deleteAccount")}</Text>
+          </Pressable>
+
+          <Pressable testID="logout-button" onPress={doLogout} style={[styles.linkRow, { marginTop: spacing.xs }]}>
+            <Ionicons name="log-out-outline" size={20} color={colors.onSurfaceSecondary} />
+            <Text style={styles.linkText}>{t("profile.logout")}</Text>
           </Pressable>
         </View>
       </ScrollView>
+
+      <Modal visible={!!exportText} transparent animationType="slide" onRequestClose={() => setExportText("")}>
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalCard, { paddingBottom: insets.bottom + spacing.lg }]}>
+            <Text style={styles.modalTitle}>{t("profile.exportData")}</Text>
+            <Text style={styles.modalMsg}>{t("profile.exportDone")}</Text>
+            <ScrollView style={styles.exportBox} nestedScrollEnabled>
+              <Text selectable style={styles.exportText}>{exportText}</Text>
+            </ScrollView>
+            <Pressable testID="export-close" onPress={() => setExportText("")} style={styles.modalPrimary}>
+              <Text style={styles.modalPrimaryText}>{t("profile.close")}</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -260,6 +330,14 @@ const styles = StyleSheet.create({
   name: { fontFamily: fonts.display, fontSize: 28, color: colors.onSurface, marginTop: spacing.md },
   email: { fontFamily: fonts.body, fontSize: 13, color: colors.muted, marginTop: 2 },
   section: { paddingHorizontal: spacing.lg },
+  modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" },
+  modalCard: { backgroundColor: colors.surfaceSecondary, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, padding: spacing.lg, maxHeight: "80%" },
+  modalTitle: { fontFamily: fonts.display, fontSize: 22, color: colors.onSurface, marginBottom: spacing.xs },
+  modalMsg: { fontFamily: fonts.body, fontSize: 13, color: colors.muted, marginBottom: spacing.md },
+  exportBox: { backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: spacing.md },
+  exportText: { fontFamily: "monospace", fontSize: 11, color: colors.onSurfaceSecondary },
+  modalPrimary: { backgroundColor: colors.brand, borderRadius: radius.md, paddingVertical: spacing.md, alignItems: "center" },
+  modalPrimaryText: { fontFamily: fonts.bodySemi, fontSize: 15, color: colors.onBrand },
   proBanner: {
     flexDirection: "row",
     alignItems: "center",

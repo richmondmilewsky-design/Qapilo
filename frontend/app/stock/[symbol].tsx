@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, Dimensions } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Dimensions, RefreshControl } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -31,17 +31,32 @@ export default function StockDetail() {
   const insets = useSafeAreaInsets();
   const { locale } = useI18n();
   const [data, setData] = useState<Detail | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchData = async () => {
+    const d = await apiRequest<Detail>(`/stocks/${symbol}`);
+    setData(d);
+    return d;
+  };
 
   useEffect(() => {
     (async () => {
       try {
-        const d = await apiRequest<Detail>(`/stocks/${symbol}`);
-        setData(d);
+        await fetchData();
       } catch {
         router.back();
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [symbol, locale]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await fetchData();
+    } catch {}
+    setRefreshing(false);
+  };
 
   const toggleWatch = async () => {
     if (!data) return;
@@ -77,7 +92,11 @@ export default function StockDetail() {
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xxl }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xxl }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand} />}
+      >
         <View style={styles.head}>
           <StockLogo uri={data.logo} symbol={data.symbol} size={56} borderRadius={radius.md} />
           <View style={{ flex: 1 }}>

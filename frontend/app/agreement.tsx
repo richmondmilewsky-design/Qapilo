@@ -74,6 +74,16 @@ export default function Agreement() {
             {t("agree.checkbox")}
           </Text>
         </Pressable>
+        <Text style={styles.privacyLine}>
+          {t("agree.privacyLine")}{" "}
+          <Text
+            testID="agree-privacy-link"
+            style={styles.privacyLink}
+            onPress={() => router.push("/privacy")}
+          >
+            {t("agree.viewPrivacy")}
+          </Text>
+        </Text>
         <PrimaryButton
           testID="agree-continue-button"
           label={t("agree.continue")}
@@ -126,6 +136,8 @@ const styles = StyleSheet.create({
   },
   checkboxOn: { backgroundColor: colors.brand, borderColor: colors.brand },
   checkLabel: { flex: 1, fontFamily: fonts.body, fontSize: 13, color: colors.onSurface, lineHeight: 19 },
+  privacyLine: { fontFamily: fonts.body, fontSize: 12, color: colors.muted, lineHeight: 18, marginTop: -spacing.xs },
+  privacyLink: { fontFamily: fonts.bodySemi, color: colors.brand },
   decline: { alignItems: "center", paddingVertical: spacing.sm },
   declineText: { fontFamily: fonts.bodyMed, fontSize: 14, color: colors.muted },
 });

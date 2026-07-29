@@ -1207,6 +1207,43 @@ async def subscription_cancel(user: dict = Depends(get_current_user)):
     return {"user": public_user(fresh)}
 
 
+@api.get("/account/export")
+async def account_export(user: dict = Depends(get_current_user)):
+    """GDPR data portability: return all stored personal data for the user."""
+    chats = await db.chat_messages.find(
+        {"user_id": user["user_id"]}, {"_id": 0, "role": 1, "content": 1, "created_at": 1}
+    ).sort("created_at", 1).to_list(5000)
+    profile = {k: v for k, v in user.items()
+               if k not in ("_id", "password", "hashed_password", "password_hash")}
+    return {
+        "exported_at": datetime.now(timezone.utc).isoformat(),
+        "data_controller": "Qapilo",
+        "profile": profile,
+        "chat_history": chats,
+    }
+
+
+@api.delete("/account")
+async def account_delete(user: dict = Depends(get_current_user)):
+    """GDPR right to erasure: cancel any active subscription and permanently
+    delete the user and all associated personal data."""
+    sub_id = user.get("subscription_id")
+    if sub_id and paypal_configured():
+        try:
+            token = await paypal_token()
+            async with httpx.AsyncClient(timeout=30) as hc:
+                await hc.post(
+                    f"{PAYPAL_BASE}/v1/billing/subscriptions/{sub_id}/cancel",
+                    headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+                    json={"reason": "Account deletion"},
+                )
+        except Exception as e:
+            logger.warning(f"sub cancel on delete failed: {e}")
+    await db.chat_messages.delete_many({"user_id": user["user_id"]})
+    await db.users.delete_one({"user_id": user["user_id"]})
+    return {"deleted": True}
+
+
 app.include_router(api)
 app.add_middleware(
     CORSMiddleware,
