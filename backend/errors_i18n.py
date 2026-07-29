@@ -118,6 +118,11 @@ ERRORS = {
         "de": "Abo konnte nicht überprüft werden",
         "es": "No se pudo verificar la suscripción",
     },
+    "consent_required": {
+        "en": "You must accept the Terms of Service and the financial disclaimer to continue.",
+        "de": "Du musst die Nutzungsbedingungen und den Finanzhinweis akzeptieren, um fortzufahren.",
+        "es": "Debes aceptar los Términos de servicio y el aviso financiero para continuar.",
+    },
 }
 
 

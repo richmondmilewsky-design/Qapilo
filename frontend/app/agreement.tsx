@@ -16,16 +16,31 @@ export default function Agreement() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t, locale } = useI18n();
-  const disclaimer = getDisclaimer(locale);
-  const [checked, setChecked] = useState(false);
+  const disclaimerDoc = getDisclaimer(locale);
+  const [terms, setTerms] = useState(false);
+  const [disclaimer, setDisclaimer] = useState(false);
+  const [analytics, setAnalytics] = useState(false);
+  const [product, setProduct] = useState(false);
+  const [marketing, setMarketing] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  const canContinue = terms && disclaimer;
+
   const agree = async () => {
-    if (!checked) return;
+    if (!canContinue) return;
     setBusy(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
-      const res = await apiRequest<{ user: any }>("/auth/accept-terms", { method: "POST" });
+      const res = await apiRequest<{ user: any }>("/auth/accept-terms", {
+        method: "POST",
+        body: {
+          accepted_terms: terms,
+          accepted_disclaimer: disclaimer,
+          consent_analytics: analytics,
+          consent_product: product,
+          consent_marketing: marketing,
+        },
+      });
       setUser(res.user);
       router.replace("/(tabs)");
     } catch {
@@ -37,6 +52,27 @@ export default function Agreement() {
     await logout();
     router.replace("/auth");
   };
+
+  const CheckRow = ({ value, onToggle, label, testID, box = true }: any) => (
+    <Pressable testID={testID} onPress={onToggle} style={styles.checkRow}>
+      <View style={[box ? styles.checkbox : styles.toggleBox, value && (box ? styles.checkboxOn : styles.toggleBoxOn)]}>
+        {value && <Ionicons name="checkmark" size={16} color={colors.onBrand} />}
+      </View>
+      <Text style={styles.checkLabel}>{label}</Text>
+    </Pressable>
+  );
+
+  const OptRow = ({ value, onToggle, label, desc, testID }: any) => (
+    <Pressable testID={testID} onPress={onToggle} style={styles.optRow}>
+      <View style={{ flex: 1, paddingRight: spacing.md }}>
+        <Text style={styles.optLabel}>{label}</Text>
+        <Text style={styles.optDesc}>{desc}</Text>
+      </View>
+      <View style={[styles.checkbox, value && styles.checkboxOn]}>
+        {value && <Ionicons name="checkmark" size={16} color={colors.onBrand} />}
+      </View>
+    </Pressable>
+  );
 
   return (
     <View style={styles.root}>
@@ -53,27 +89,31 @@ export default function Agreement() {
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xl }}
         showsVerticalScrollIndicator={true}
       >
-        {disclaimer.sections.map((s) => (
+        {disclaimer_sections(disclaimerDoc).map((s) => (
           <View key={s.heading} style={styles.section}>
             <Text style={styles.heading}>{s.heading}</Text>
             <Text style={styles.body}>{s.body}</Text>
           </View>
         ))}
+
+        {/* Required consents */}
+        <Text style={styles.groupLabel}>{t("agree.requiredTitle")}</Text>
+        <View style={styles.consentCard}>
+          <CheckRow testID="req-terms" value={terms} onToggle={() => setTerms((v) => !v)} label={t("agree.reqTerms")} />
+          <CheckRow testID="req-disclaimer" value={disclaimer} onToggle={() => setDisclaimer((v) => !v)} label={t("agree.reqDisclaimer")} />
+        </View>
+
+        {/* Optional consents */}
+        <Text style={styles.groupLabel}>{t("agree.optionalTitle")}</Text>
+        <View style={styles.consentCard}>
+          <OptRow testID="opt-analytics" value={analytics} onToggle={() => setAnalytics((v) => !v)} label={t("agree.optAnalytics")} desc={t("agree.optAnalyticsDesc")} />
+          <OptRow testID="opt-product" value={product} onToggle={() => setProduct((v) => !v)} label={t("agree.optProduct")} desc={t("agree.optProductDesc")} />
+          <OptRow testID="opt-marketing" value={marketing} onToggle={() => setMarketing((v) => !v)} label={t("agree.optMarketing")} desc={t("agree.optMarketingDesc")} />
+        </View>
+        <Text style={styles.optionalHint}>{t("agree.optionalHint")}</Text>
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
-        <Pressable
-          testID="agree-checkbox"
-          onPress={() => setChecked((c) => !c)}
-          style={styles.checkRow}
-        >
-          <View style={[styles.checkbox, checked && styles.checkboxOn]}>
-            {checked && <Ionicons name="checkmark" size={16} color={colors.onBrand} />}
-          </View>
-          <Text style={styles.checkLabel}>
-            {t("agree.checkbox")}
-          </Text>
-        </Pressable>
         <Text style={styles.privacyLine}>
           {t("agree.privacyLine")}{" "}
           <Text
@@ -88,7 +128,7 @@ export default function Agreement() {
           testID="agree-continue-button"
           label={t("agree.continue")}
           onPress={agree}
-          disabled={!checked}
+          disabled={!canContinue}
           loading={busy}
         />
         <Pressable testID="decline-button" onPress={decline} style={styles.decline}>
@@ -97,6 +137,10 @@ export default function Agreement() {
       </View>
     </View>
   );
+}
+
+function disclaimer_sections(d: any) {
+  return d.sections as { heading: string; body: string }[];
 }
 
 const styles = StyleSheet.create({
@@ -124,7 +168,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceSecondary,
     gap: spacing.md,
   },
-  checkRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+  checkRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: spacing.sm },
   checkbox: {
     width: 26,
     height: 26,
@@ -135,7 +179,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   checkboxOn: { backgroundColor: colors.brand, borderColor: colors.brand },
-  checkLabel: { flex: 1, fontFamily: fonts.body, fontSize: 13, color: colors.onSurface, lineHeight: 19 },
+  toggleBox: {
+    width: 26, height: 26, borderRadius: radius.sm, borderWidth: 2,
+    borderColor: colors.borderStrong, alignItems: "center", justifyContent: "center",
+  },
+  toggleBoxOn: { backgroundColor: colors.brand, borderColor: colors.brand },
+  checkLabel: { flex: 1, fontFamily: fonts.bodyMed, fontSize: 14, color: colors.onSurface, lineHeight: 20 },
+  groupLabel: { fontFamily: fonts.displayMed, fontSize: 12, color: colors.muted, letterSpacing: 1.2, textTransform: "uppercase", marginTop: spacing.lg, marginBottom: spacing.sm },
+  consentCard: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.md },
+  optRow: { flexDirection: "row", alignItems: "center", paddingVertical: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border, minHeight: 52 },
+  optLabel: { fontFamily: fonts.bodySemi, fontSize: 15, color: colors.onSurface },
+  optDesc: { fontFamily: fonts.body, fontSize: 12, color: colors.muted, marginTop: 2, lineHeight: 17 },
+  optionalHint: { fontFamily: fonts.body, fontSize: 12, color: colors.muted, marginTop: spacing.sm, lineHeight: 18 },
   privacyLine: { fontFamily: fonts.body, fontSize: 12, color: colors.muted, lineHeight: 18, marginTop: -spacing.xs },
   privacyLink: { fontFamily: fonts.bodySemi, color: colors.brand },
   decline: { alignItems: "center", paddingVertical: spacing.sm },

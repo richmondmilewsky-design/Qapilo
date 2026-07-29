@@ -84,6 +84,22 @@ class CompleteBody(BaseModel):
     total: int
 
 
+class AcceptTermsBody(BaseModel):
+    # Required consents
+    accepted_terms: bool = True
+    accepted_disclaimer: bool = True
+    # Optional (voluntary) consents — default off
+    consent_analytics: bool = False
+    consent_product: bool = False
+    consent_marketing: bool = False
+
+
+class ConsentsBody(BaseModel):
+    consent_analytics: bool
+    consent_product: bool
+    consent_marketing: bool
+
+
 # ----------------------------- Helpers -----------------------------
 def make_token(user_id: str) -> str:
     now = datetime.now(timezone.utc)
@@ -192,6 +208,10 @@ def public_user(u: dict) -> dict:
         "daily_goal": DAILY_GOAL_XP,
         "auth_provider": u.get("auth_provider", "password"),
         "accepted_terms": u.get("accepted_terms", False),
+        "accepted_disclaimer": u.get("accepted_disclaimer", False),
+        "consent_analytics": u.get("consent_analytics", False),
+        "consent_product": u.get("consent_product", False),
+        "consent_marketing": u.get("consent_marketing", False),
         **compute_pro(u),
     }
 
@@ -340,11 +360,34 @@ async def logout(user: dict = Depends(get_current_user)):
 
 
 @api.post("/auth/accept-terms")
-async def accept_terms(user: dict = Depends(get_current_user)):
+async def accept_terms(body: AcceptTermsBody, user: dict = Depends(get_current_user)):
+    # Terms of Service and the financial disclaimer are mandatory to proceed.
+    if not (body.accepted_terms and body.accepted_disclaimer):
+        raise HTTPException(status_code=400, detail=L("consent_required"))
+    now = datetime.now(timezone.utc).isoformat()
     await db.users.update_one(
         {"user_id": user["user_id"]},
         {"$set": {"accepted_terms": True,
-                  "terms_accepted_at": datetime.now(timezone.utc).isoformat()}},
+                  "accepted_disclaimer": True,
+                  "consent_analytics": body.consent_analytics,
+                  "consent_product": body.consent_product,
+                  "consent_marketing": body.consent_marketing,
+                  "terms_accepted_at": now,
+                  "consents_updated_at": now}},
+    )
+    fresh = await db.users.find_one({"user_id": user["user_id"]}, {"_id": 0})
+    return {"user": public_user(fresh)}
+
+
+@api.patch("/auth/consents")
+async def update_consents(body: ConsentsBody, user: dict = Depends(get_current_user)):
+    """GDPR right to withdraw: update the optional (voluntary) consents anytime."""
+    await db.users.update_one(
+        {"user_id": user["user_id"]},
+        {"$set": {"consent_analytics": body.consent_analytics,
+                  "consent_product": body.consent_product,
+                  "consent_marketing": body.consent_marketing,
+                  "consents_updated_at": datetime.now(timezone.utc).isoformat()}},
     )
     fresh = await db.users.find_one({"user_id": user["user_id"]}, {"_id": 0})
     return {"user": public_user(fresh)}

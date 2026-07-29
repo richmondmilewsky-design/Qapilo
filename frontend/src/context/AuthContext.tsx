@@ -28,6 +28,10 @@ export type User = {
   trial_ends_at: string | null;
   subscription_status: string | null;
   accepted_terms: boolean;
+  accepted_disclaimer?: boolean;
+  consent_analytics?: boolean;
+  consent_product?: boolean;
+  consent_marketing?: boolean;
 };
 
 type AuthCtx = {

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, Modal, ActivityIndicator, Alert, Linking, Platform } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Modal, ActivityIndicator, Alert, Linking, Platform, Switch } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -33,13 +33,62 @@ function Row({ icon, label, onPress, testID, danger, right, loading }: any) {
   );
 }
 
+function ConsentRow({ label, desc, value, onToggle, loading, testID, last }: any) {
+  return (
+    <View style={[styles.consentRow, last && { borderBottomWidth: 0 }]}>
+      <View style={{ flex: 1, paddingRight: spacing.md }}>
+        <Text style={styles.consentLabel}>{label}</Text>
+        <Text style={styles.consentDesc}>{desc}</Text>
+      </View>
+      {loading ? (
+        <ActivityIndicator size="small" color={colors.muted} />
+      ) : (
+        <Switch
+          testID={testID}
+          value={value}
+          onValueChange={onToggle}
+          trackColor={{ false: colors.borderStrong, true: colors.brand }}
+          thumbColor={colors.onBrand}
+        />
+      )}
+    </View>
+  );
+}
+
 export default function SettingsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { logout } = useAuth();
+  const { logout, user, setUser } = useAuth();
   const { t, openPicker } = useI18n();
   const [exporting, setExporting] = useState(false);
   const [exportText, setExportText] = useState("");
+  const [savingConsent, setSavingConsent] = useState<string | null>(null);
+
+  const consents = {
+    analytics: !!user?.consent_analytics,
+    product: !!user?.consent_product,
+    marketing: !!user?.consent_marketing,
+  };
+
+  const toggleConsent = async (key: "analytics" | "product" | "marketing", value: boolean) => {
+    const next = { ...consents, [key]: value };
+    setSavingConsent(key);
+    try {
+      const res = await apiRequest<{ user: any }>("/auth/consents", {
+        method: "PATCH",
+        body: {
+          consent_analytics: next.analytics,
+          consent_product: next.product,
+          consent_marketing: next.marketing,
+        },
+      });
+      setUser(res.user);
+    } catch {
+      Alert.alert(t("common.error"), t("consent.error"));
+    } finally {
+      setSavingConsent(null);
+    }
+  };
 
   const goDoc = (type: string) => router.push(`/doc?type=${type}` as any);
 
@@ -115,6 +164,15 @@ export default function SettingsScreen() {
           <Row testID="row-delete" icon="close-circle-outline" label={t("profile.deleteAccount")} onPress={confirmDelete} danger right={<View />} />
         </View>
 
+        <Text style={styles.groupLabel}>{t("settings.consents")}</Text>
+        <Text style={styles.consentSubtitle}>{t("consent.subtitle")}</Text>
+        <View style={styles.card}>
+          <ConsentRow testID="consent-analytics" label={t("agree.optAnalytics")} desc={t("agree.optAnalyticsDesc")} value={consents.analytics} loading={savingConsent === "analytics"} onToggle={(v: boolean) => toggleConsent("analytics", v)} />
+          <ConsentRow testID="consent-product" label={t("agree.optProduct")} desc={t("agree.optProductDesc")} value={consents.product} loading={savingConsent === "product"} onToggle={(v: boolean) => toggleConsent("product", v)} />
+          <ConsentRow testID="consent-marketing" label={t("agree.optMarketing")} desc={t("agree.optMarketingDesc")} value={consents.marketing} loading={savingConsent === "marketing"} onToggle={(v: boolean) => toggleConsent("marketing", v)} last />
+        </View>
+        <Text style={styles.consentNote}>{t("consent.reqNote")}</Text>
+
         <Text style={styles.groupLabel}>{t("settings.preferences")}</Text>
         <View style={styles.card}>
           <Row testID="row-language" icon="language-outline" label={t("profile.language")} onPress={openPicker} />
@@ -148,6 +206,11 @@ const styles = StyleSheet.create({
   card: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.md },
   row: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border, minHeight: 52 },
   rowText: { flex: 1, fontFamily: fonts.bodyMed, fontSize: 15, color: colors.onSurface },
+  consentSubtitle: { fontFamily: fonts.body, fontSize: 12, color: colors.muted, marginBottom: spacing.sm, marginTop: -spacing.xs, lineHeight: 17 },
+  consentRow: { flexDirection: "row", alignItems: "center", paddingVertical: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border, minHeight: 52 },
+  consentLabel: { fontFamily: fonts.bodySemi, fontSize: 15, color: colors.onSurface },
+  consentDesc: { fontFamily: fonts.body, fontSize: 12, color: colors.muted, marginTop: 2, lineHeight: 17 },
+  consentNote: { fontFamily: fonts.body, fontSize: 12, color: colors.muted, marginTop: spacing.sm, lineHeight: 17 },
   contactEmail: { fontFamily: fonts.body, fontSize: 12, color: colors.muted },
   modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" },
   modalCard: { backgroundColor: colors.surfaceSecondary, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, padding: spacing.lg, maxHeight: "80%" },

@@ -159,4 +159,20 @@ test_plan:
 
 agent_communication:
     - agent: "main"
-      message: "Two areas to verify. (1) NEW: Finnhub migration for stock data — test /api/stocks (list should have source='finnhub' with live prices) and /api/stocks/{symbol} (live quote + 30-pt history ending at live price). (2) PENDING E2E: app-wide i18n changes — verify lang=en/de/es on content endpoints and that frontend language switcher + all core flows (learn path, lesson player quizzes, stocks explorer + detail, AI tutor chat, paywall) work without regressions. Use test creds in /app/memory/test_credentials.md (demo@tradequest.app / demo123) or sign up a new user. Google OAuth and live PayPal approval cannot be automated (sandbox, keys present)."
+      message: "NEW FEATURE: Split consent. (1) Onboarding /agreement now has two required checkboxes (Terms of Service + financial disclaimer) that must BOTH be checked to enable 'Agree & Continue', plus three OPTIONAL toggles (analytics, product improvements, marketing emails) default OFF. Submits to POST /api/auth/accept-terms with body {accepted_terms, accepted_disclaimer, consent_analytics, consent_product, consent_marketing}. Backend returns 400 (consent_required, localized) if either required flag is false. (2) NEW endpoint PATCH /api/auth/consents to update the 3 optional consents anytime (GDPR withdrawal). (3) Settings screen has a new 'Consents' section with 3 Switch rows that call PATCH and update the user. Consent flags added to public_user + account export. Verified backend via python requests: signup defaults false, 400 on missing required, accept persists all flags, patch updates, export includes flags. Please E2E test: agreement checkbox gating + optional toggles + submit; settings consent switches persist. Test creds in /app/memory/test_credentials.md or sign up new."
+
+new_feature_consent_split:
+  backend:
+    - task: "Split consent endpoints (accept-terms body + PATCH /auth/consents)"
+      implemented: true
+      working: true
+      file: "server.py, errors_i18n.py"
+      priority: "high"
+      needs_retesting: false
+  frontend:
+    - task: "Agreement screen two-block consent + Settings consent management"
+      implemented: true
+      working: "NA"
+      file: "app/agreement.tsx, app/settings.tsx, src/i18n/translations.ts"
+      priority: "high"
+      needs_retesting: true

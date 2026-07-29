@@ -1,0 +1,41 @@
+{
+  "summary": "Iteration 11 — Split consents (required Terms+Disclaimer / optional analytics+product+marketing). Backend: 6/6 pytest passed (test_iteration_11_consents.py) — signup defaults all 5 flags to false, POST /api/auth/accept-terms returns 400 when either required flag is false and 200+persists all 5 when both are true, PATCH /api/auth/consents updates the three optional flags without touching required, and GET /api/account/export includes consent_analytics/consent_product/consent_marketing in profile. Frontend E2E: fresh signup redirects to /agreement; 'agree-continue-button' correctly gated (aria-disabled=true until BOTH req-terms AND req-disclaimer are checked; toggling opt-* does NOT affect gating; unchecking a required flag disables again). Optional toggles default OFF. Found and fixed a P0 blocking bug where agreement.tsx and settings.tsx double-JSON-encoded the request body (both passed body: JSON.stringify(...) while apiRequest already stringifies internally) — this caused POST /auth/accept-terms and PATCH /auth/consents to return 422 model_attributes_type from Pydantic. After the fix, submit navigates to /(tabs), Settings 'Consents' section renders three Switches reflecting current user values, toggling calls PATCH /auth/consents (200) and state persists across full reload (verified via /auth/me).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "POST /api/auth/accept-terms and PATCH /api/auth/consents from Expo web",
+        "issue": "Both callers passed body: JSON.stringify(...) but apiRequest in src/api/client.ts already applies JSON.stringify, so the server received a JSON-encoded string instead of an object → Pydantic 422 (model_attributes_type). Fixed by passing raw object in body.",
+        "affected_testIDs": ["agree-continue-button", "consent-analytics", "consent-product", "consent-marketing"]
+      }
+    ],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration_11_consents.py",
+    "/app/test_reports/pytest/pytest_iteration_11.xml"
+  ],
+  "action_items": [
+    "None blocking — bug fixed and retested end-to-end. Consider centralizing body handling in apiRequest (e.g., document that callers must pass raw objects) or add a runtime guard to warn when body is already a string, to prevent this class of bug in future callers."
+  ],
+  "critical_code_review_comments": [
+    "src/api/client.ts:42 stringifies body internally — convention across the app is to pass raw objects; agreement.tsx and settings.tsx were the only two files violating this and are now fixed.",
+    "agreement.tsx correctly derives canContinue = terms && disclaimer and passes disabled={!canContinue} to PrimaryButton (renders aria-disabled on web).",
+    "settings.tsx ConsentRow uses testID on <Switch>, and toggle handler patches all three flags in one call preserving other consents — good idempotence.",
+    "Backend: POST /auth/accept-terms checks both accepted_terms AND accepted_disclaimer before persisting (server.py:365-366), returns localized detail via L('consent_required'). PATCH /auth/consents only updates optional flags — required flags untouched.",
+    "/account/export excludes _id/password fields and includes consent_* flags via profile spread (server.py:1260)."
+  ],
+  "updated_files": [
+    "/app/frontend/app/agreement.tsx (removed double JSON.stringify on /auth/accept-terms body)",
+    "/app/frontend/app/settings.tsx (removed double JSON.stringify on /auth/consents body)",
+    "/app/backend/tests/test_iteration_11_consents.py (new)"
+  ],
+  "success_rate": {"backend": "100% (6/6)", "frontend": "100% (all consent flows verified after fix)"},
+  "seed_data_creation": "Throwaway UI signups (uitest_c_*, uitest_r_*, uitest_fix_*, uitest_final_*@example.com) and pytest fixture-created TEST_consent_* users. pytest fixture cleans up via DELETE /api/account. Final UI test user also deleted.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Frontend api client (src/api/client.ts) does JSON.stringify internally — always pass body as a raw object, never a pre-stringified string. When testing switch state on Expo web, do not rely on aria-checked (RN Switch doesn't set it on web); read the underlying <input> checked property via page.evaluate. Local storage token key is 'tq_token'. To reach /agreement, signup a fresh user with an @example.com email (Pydantic EmailStr rejects .test/.local).",
+  "rca_of_issue": "Root cause: apiRequest in /app/frontend/src/api/client.ts already applies JSON.stringify at line 42, but /app/frontend/app/agreement.tsx (line 36) and /app/frontend/app/settings.tsx (line 79) also passed body: JSON.stringify({...}), producing a double-encoded string. The server received a JSON-literal string body and Pydantic rejected it with 422 model_attributes_type ('Input should be a valid dictionary or object to extract fields from'). Reproduction: sign up fresh user → /agreement → check both required boxes → tap 'Agree & Continue' → screen stayed on /agreement, network tab showed POST /api/auth/accept-terms 422. Mitigation applied: replaced JSON.stringify({...}) with raw object literal in both files. Verified 200 responses and full persistence via /auth/me after reload."
+}
