@@ -119,23 +119,23 @@ export default function AuthScreen() {
               testID="google-login-button"
               onPress={google}
               disabled={gLoading}
-              style={({ pressed }) => [styles.googleBtn, { opacity: pressed ? 0.85 : 1 }]}
+              style={({ pressed }) => [styles.socialBtn, { opacity: pressed ? 0.85 : 1 }]}
             >
-              <Ionicons name="logo-google" size={20} color={colors.onSurface} />
-              <Text style={styles.googleText}>
+              <Ionicons name="logo-google" size={20} color={colors.onSurface} style={styles.socialIcon} />
+              <Text style={styles.socialText}>
                 {gLoading ? "…" : t("auth.google")}
               </Text>
             </Pressable>
 
             {Platform.OS === "ios" && appleAvailable && (
-              <AppleAuthentication.AppleAuthenticationButton
+              <Pressable
                 testID="apple-login-button"
-                buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-                buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
-                cornerRadius={radius.md}
-                style={styles.appleBtn}
                 onPress={apple}
-              />
+                style={({ pressed }) => [styles.socialBtn, styles.socialBtnSpacing, { opacity: pressed ? 0.85 : 1 }]}
+              >
+                <Ionicons name="logo-apple" size={22} color={colors.onSurface} style={styles.socialIcon} />
+                <Text style={styles.socialText}>{t("auth.apple")}</Text>
+              </Pressable>
             )}
 
             <View style={styles.divider}>
@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
     maxWidth: 260,
   },
   h1: { fontFamily: fonts.display, fontSize: 28, color: colors.onSurface, marginBottom: spacing.lg },
-  googleBtn: {
+  socialBtn: {
     height: 54,
     borderRadius: radius.md,
     backgroundColor: colors.surfaceSecondary,
@@ -260,10 +260,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: spacing.sm,
   },
-  googleText: { fontFamily: fonts.bodySemi, fontSize: 16, color: colors.onSurface },
-  appleBtn: { height: 54, width: "100%", marginTop: spacing.md },
+  socialBtnSpacing: { marginTop: spacing.md },
+  socialIcon: { position: "absolute", left: spacing.lg },
+  socialText: { fontFamily: fonts.bodySemi, fontSize: 16, color: colors.onSurface },
   divider: { flexDirection: "row", alignItems: "center", marginVertical: spacing.lg, gap: spacing.md },
   line: { flex: 1, height: 1, backgroundColor: colors.border },
   dividerText: { fontFamily: fonts.body, color: colors.muted, fontSize: 13 },
