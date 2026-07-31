@@ -4,6 +4,8 @@ import {
   Text,
   StyleSheet,
   FlatList,
+  Animated,
+  Platform,
   Pressable,
   useWindowDimensions,
 } from "react-native";
@@ -27,6 +29,7 @@ export default function Onboarding() {
   const { t } = useI18n();
   const { width } = useWindowDimensions();
   const listRef = useRef<FlatList>(null);
+  const scrollX = useRef(new Animated.Value(0)).current;
   const [index, setIndex] = useState(0);
 
   const slides: Slide[] = [
@@ -71,6 +74,11 @@ export default function Onboarding() {
     if (i !== index) setIndex(i);
   };
 
+  const handleScroll = Animated.event(
+    [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+    { useNativeDriver: Platform.OS !== "web" }
+  );
+
   const isLast = index === slides.length - 1;
 
   return (
@@ -83,22 +91,37 @@ export default function Onboarding() {
         </Pressable>
       </View>
 
-      <FlatList
-        ref={listRef}
+      <Animated.FlatList
+        ref={listRef as any}
         data={slides}
-        keyExtractor={(s) => s.key}
+        keyExtractor={(s: any) => s.key}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={handleScroll}
         onMomentumScrollEnd={onScroll}
-        getItemLayout={(_, i) => ({ length: width, offset: width * i, index: i })}
-        renderItem={({ item }) => (
-          <View style={[styles.slide, { width }]}>
-            <View style={styles.badge}>{item.icon}</View>
-            <Text testID={`onboarding-title-${item.key}`} style={styles.title}>{item.title}</Text>
-            <Text style={styles.sub}>{item.sub}</Text>
-          </View>
-        )}
+        getItemLayout={(_: any, i: number) => ({ length: width, offset: width * i, index: i })}
+        renderItem={({ item, index: i }: { item: Slide; index: number }) => {
+          const inputRange = [(i - 1) * width, i * width, (i + 1) * width];
+          const opacity = scrollX.interpolate({ inputRange, outputRange: [0.2, 1, 0.2], extrapolate: "clamp" });
+          const translateY = scrollX.interpolate({ inputRange, outputRange: [26, 0, 26], extrapolate: "clamp" });
+          return (
+            <View style={[styles.slide, { width }]}>
+              <Animated.View style={{ alignItems: "center", opacity, transform: [{ translateY }] }}>
+                <View style={styles.badge}>{item.icon}</View>
+                <Text testID={`onboarding-title-${item.key}`} style={styles.title}>{item.title}</Text>
+                <Text style={styles.sub}>{item.sub}</Text>
+                {item.key === "s3" && (
+                  <View style={styles.proPill}>
+                    <Ionicons name="sparkles" size={14} color={colors.onBrand} />
+                    <Text style={styles.proPillText}>{t("onboarding.proBadge")}</Text>
+                  </View>
+                )}
+              </Animated.View>
+            </View>
+          );
+        }}
       />
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.lg }]}>
@@ -135,6 +158,17 @@ const styles = StyleSheet.create({
   },
   title: { fontFamily: fonts.display, fontSize: 30, color: colors.onSurface, textAlign: "center", marginBottom: spacing.md },
   sub: { fontFamily: fonts.body, fontSize: 16, color: colors.muted, textAlign: "center", lineHeight: 24, maxWidth: 320 },
+  proPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    backgroundColor: colors.brand,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 999,
+    marginTop: spacing.xl,
+  },
+  proPillText: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.onBrand },
   footer: { paddingHorizontal: spacing.xl, paddingTop: spacing.md, gap: spacing.lg },
   dots: { flexDirection: "row", justifyContent: "center", gap: spacing.sm },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.border },
