@@ -48,6 +48,11 @@ ERRORS = {
         "de": "Google-Sitzung ungültig",
         "es": "Sesión de Google no válida",
     },
+    "apple_invalid": {
+        "en": "Apple sign-in could not be verified",
+        "de": "Apple-Anmeldung konnte nicht verifiziert werden",
+        "es": "No se pudo verificar el inicio de sesión con Apple",
+    },
     "lesson_not_found": {
         "en": "Lesson not found",
         "de": "Lektion nicht gefunden",

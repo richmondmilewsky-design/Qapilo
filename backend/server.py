@@ -54,6 +54,14 @@ PAYPAL_BASE = (
     "https://api-m.paypal.com" if PAYPAL_MODE == "live" else "https://api-m.sandbox.paypal.com"
 )
 
+# --- Sign in with Apple ---
+APPLE_ISSUER = "https://appleid.apple.com"
+APPLE_JWKS_URL = "https://appleid.apple.com/auth/keys"
+APPLE_AUDIENCES = [
+    a.strip() for a in os.environ.get("APPLE_AUDIENCES", "").split(",") if a.strip()
+]
+_apple_jwks_cache: dict = {"keys": None, "fetched_at": 0.0}
+
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 logging.basicConfig(level=logging.INFO)
@@ -77,6 +85,12 @@ class LoginBody(BaseModel):
 
 class GoogleBody(BaseModel):
     session_id: str
+
+
+class AppleBody(BaseModel):
+    identity_token: str
+    name: Optional[str] = None
+    email: Optional[EmailStr] = None
 
 
 class CompleteBody(BaseModel):
@@ -347,6 +361,88 @@ async def google_auth(body: GoogleBody):
         )
         user = await db.users.find_one({"user_id": user["user_id"]})
     return {"token": make_token(user["user_id"]), "user": public_user(user)}
+
+
+async def _apple_jwks() -> dict:
+    """Fetch Apple's public JWKS, cached for 24h."""
+    import time
+    now = time.time()
+    if not _apple_jwks_cache["keys"] or now - _apple_jwks_cache["fetched_at"] > 86400:
+        async with httpx.AsyncClient(timeout=15) as hc:
+            r = await hc.get(APPLE_JWKS_URL)
+        r.raise_for_status()
+        _apple_jwks_cache["keys"] = r.json().get("keys", [])
+        _apple_jwks_cache["fetched_at"] = now
+    return _apple_jwks_cache["keys"]
+
+
+async def verify_apple_token(identity_token: str) -> dict:
+    """Verify an Apple identity token against Apple's JWKS (RS256).
+    Checks signature, issuer, audience and expiry. Returns the decoded claims."""
+    try:
+        header = jwt.get_unverified_header(identity_token)
+    except Exception:
+        raise HTTPException(status_code=401, detail=L("apple_invalid"))
+    keys = await _apple_jwks()
+    jwk = next((k for k in keys if k.get("kid") == header.get("kid")), None)
+    if not jwk:
+        raise HTTPException(status_code=401, detail=L("apple_invalid"))
+    try:
+        public_key = jwt.algorithms.RSAAlgorithm.from_jwk(jwk)
+        claims = jwt.decode(
+            identity_token,
+            public_key,
+            algorithms=["RS256"],
+            audience=APPLE_AUDIENCES if APPLE_AUDIENCES else None,
+            issuer=APPLE_ISSUER,
+            options={"verify_aud": bool(APPLE_AUDIENCES)},
+        )
+    except Exception:
+        raise HTTPException(status_code=401, detail=L("apple_invalid"))
+    return claims
+
+
+@api.post("/auth/apple")
+async def apple_auth(body: AppleBody):
+    claims = await verify_apple_token(body.identity_token)
+    apple_sub = claims.get("sub")
+    if not apple_sub:
+        raise HTTPException(status_code=401, detail=L("apple_invalid"))
+    # Email may come from the token (first sign-in) or the client payload.
+    email = (claims.get("email") or (body.email or "")).lower() or None
+
+    user = await db.users.find_one({"apple_sub": apple_sub})
+    if not user and email:
+        # Link to an existing account with the same email if present.
+        user = await db.users.find_one({"email": email})
+        if user:
+            await db.users.update_one(
+                {"user_id": user["user_id"]}, {"$set": {"apple_sub": apple_sub}}
+            )
+            user = await db.users.find_one({"user_id": user["user_id"]})
+
+    if not user:
+        display_name = (body.name or (email.split("@")[0] if email else "Investor"))
+        user = {
+            "user_id": f"user_{uuid.uuid4().hex[:12]}",
+            "email": email,
+            "apple_sub": apple_sub,
+            "name": display_name,
+            "picture": None,
+            "hashed_password": None,
+            "auth_provider": "apple",
+            "xp": 0, "streak": 0, "longest_streak": 0,
+            "completed_lessons": [], "perfect_lessons": [], "badges": [],
+            "daily_xp": 0, "daily_date": today_str(),
+            "last_active": None,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "trial_ends_at": (datetime.now(timezone.utc) + timedelta(days=TRIAL_DAYS)).isoformat(),
+            "pro_active": False, "subscription_id": None, "subscription_status": None,
+            "accepted_terms": False,
+        }
+        await db.users.insert_one(user)
+    return {"token": make_token(user["user_id"]), "user": public_user(user)}
+
 
 
 @api.get("/auth/me")

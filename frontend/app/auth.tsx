@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import * as AppleAuthentication from "expo-apple-authentication";
 import { useAuth } from "@/src/context/AuthContext";
 import { useI18n } from "@/src/i18n/I18nContext";
 import { LanguageButton } from "@/src/components/LanguageButton";
@@ -20,7 +21,7 @@ import { PrimaryButton } from "@/src/components/ui";
 import { colors, fonts, radius, spacing } from "@/src/theme/theme";
 
 export default function AuthScreen() {
-  const { login, signup, loginWithGoogle } = useAuth();
+  const { login, signup, loginWithGoogle, loginWithApple } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t } = useI18n();
@@ -31,7 +32,15 @@ export default function AuthScreen() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [gLoading, setGLoading] = useState(false);
+  const [appleAvailable, setAppleAvailable] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (Platform.OS !== "ios") return;
+    AppleAuthentication.isAvailableAsync()
+      .then(setAppleAvailable)
+      .catch(() => setAppleAvailable(false));
+  }, []);
 
   const submit = async () => {
     setError("");
@@ -57,6 +66,18 @@ export default function AuthScreen() {
       setError(e.message || t("auth.googleFailed"));
     } finally {
       setGLoading(false);
+    }
+  };
+
+  const apple = async () => {
+    setError("");
+    try {
+      await loginWithApple();
+      router.replace("/");
+    } catch (e: any) {
+      // User cancelled the native sheet — not an error worth surfacing.
+      if (e?.code === "ERR_REQUEST_CANCELED" || e?.code === "ERR_CANCELED") return;
+      setError(e.message || t("auth.appleFailed"));
     }
   };
 
@@ -105,6 +126,17 @@ export default function AuthScreen() {
                 {gLoading ? "…" : t("auth.google")}
               </Text>
             </Pressable>
+
+            {Platform.OS === "ios" && appleAvailable && (
+              <AppleAuthentication.AppleAuthenticationButton
+                testID="apple-login-button"
+                buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+                cornerRadius={radius.md}
+                style={styles.appleBtn}
+                onPress={apple}
+              />
+            )}
 
             <View style={styles.divider}>
               <View style={styles.line} />
@@ -231,6 +263,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   googleText: { fontFamily: fonts.bodySemi, fontSize: 16, color: colors.onSurface },
+  appleBtn: { height: 54, width: "100%", marginTop: spacing.md },
   divider: { flexDirection: "row", alignItems: "center", marginVertical: spacing.lg, gap: spacing.md },
   line: { flex: 1, height: 1, backgroundColor: colors.border },
   dividerText: { fontFamily: fonts.body, color: colors.muted, fontSize: 13 },

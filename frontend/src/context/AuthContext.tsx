@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { Platform } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
+import * as AppleAuthentication from "expo-apple-authentication";
 import { apiRequest, setToken } from "@/src/api/client";
 
 export type User = {
@@ -40,6 +41,7 @@ type AuthCtx = {
   signup: (email: string, password: string, name: string) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
+  loginWithApple: () => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
   setUser: (u: User) => void;
@@ -172,6 +174,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const loginWithApple = async () => {
+    const cred = await AppleAuthentication.signInAsync({
+      requestedScopes: [
+        AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+        AppleAuthentication.AppleAuthenticationScope.EMAIL,
+      ],
+    });
+    if (!cred.identityToken) throw new Error("No identity token");
+    const fullName = cred.fullName
+      ? [cred.fullName.givenName, cred.fullName.familyName].filter(Boolean).join(" ").trim()
+      : null;
+    const data = await apiRequest<{ token: string; user: User }>("/auth/apple", {
+      method: "POST",
+      auth: false,
+      body: {
+        identity_token: cred.identityToken,
+        name: fullName || null,
+        email: cred.email || null,
+      },
+    });
+    await setToken(data.token);
+    setUser(data.user);
+  };
+
   const logout = async () => {
     try {
       await apiRequest("/auth/logout", { method: "POST" });
@@ -182,7 +208,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <Ctx.Provider
-      value={{ user, loading, signup, login, loginWithGoogle, logout, refresh, setUser }}
+      value={{ user, loading, signup, login, loginWithGoogle, loginWithApple, logout, refresh, setUser }}
     >
       {children}
     </Ctx.Provider>
