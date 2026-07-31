@@ -8,10 +8,11 @@ import {
   Platform,
   ScrollView,
   Pressable,
+  Image,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { useAuth } from "@/src/context/AuthContext";
@@ -104,9 +105,11 @@ export default function AuthScreen() {
               <LanguageButton />
             </View>
             <View style={styles.logoWrap}>
-              <View style={styles.logoBadge}>
-                <MaterialCommunityIcons name="chart-line-variant" size={34} color={colors.onBrand} />
-              </View>
+              <Image
+                source={require("../assets/images/icon.png")}
+                style={styles.logoImg}
+                resizeMode="cover"
+              />
               <Text style={styles.brand}>QAPILO</Text>
               <Text style={styles.tagline}>{t("auth.tagline")}</Text>
             </View>
@@ -232,13 +235,10 @@ const styles = StyleSheet.create({
   scroll: { paddingHorizontal: spacing.xl },
   logoWrap: { alignItems: "center", marginBottom: spacing.xxl },
   langTop: { alignItems: "flex-end", marginBottom: spacing.sm },
-  logoBadge: {
-    width: 72,
-    height: 72,
+  logoImg: {
+    width: 84,
+    height: 84,
     borderRadius: radius.lg,
-    backgroundColor: colors.brand,
-    alignItems: "center",
-    justifyContent: "center",
     marginBottom: spacing.md,
   },
   brand: { fontFamily: fonts.display, fontSize: 34, color: colors.onSurface, letterSpacing: 1 },
