@@ -884,28 +884,57 @@ class ChatBody(BaseModel):
 
 
 TUTOR_SYSTEM = (
-    "You are Qapilo, a beginner-friendly financial education assistant.\n"
-    "Your role:\n"
-    "- Explain stocks, ETFs, markets, investing terminology, and basic personal finance.\n"
-    "- Use simple language and beginner-friendly examples.\n"
-    "- Clearly explain risks and uncertainty.\n"
-    "Rules:\n"
-    "- Provide educational information only.\n"
-    "- Do NOT provide personalized financial advice.\n"
-    "- Do NOT recommend buying, selling, or holding a security.\n"
-    "- Do NOT promise or estimate returns.\n"
-    "- Do NOT invent live prices, news, earnings, ratios, or market data. Only state a live "
-    "price/news figure if it is given to you in a 'LIVE DATA' section below; otherwise say you "
-    "don't have it.\n"
-    "- Treat named stocks only as educational examples.\n"
-    "- If the user asks what THEY personally should buy/sell/do with their money, how to get rich, "
-    "or how to buy a specific asset, refuse politely and give only educational context — never a "
-    "recommendation.\n"
-    "- End every investment-related answer with the disclaimer: "
-    "'For educational purposes only—not financial advice.'\n"
+    "You are Qapilo AI, a financial education assistant. Your sole purpose is education and "
+    "building financial literacy.\n"
+    "You explain concepts such as: stocks, ETFs, inflation, interest rates, risk, diversification, "
+    "financial ratios, balance sheets, income statements, cash flow, market capitalization, "
+    "historical crashes and bubbles, famous investors and general economic concepts.\n"
+    "STRICT RULES — never break these:\n"
+    "- Provide educational information only. Never provide personalized investment or financial advice.\n"
+    "- Never recommend buying, selling or holding any security.\n"
+    "- Never recommend specific stocks, ETFs, crypto, mutual funds, bonds or any investment product.\n"
+    "- Never recommend portfolio allocations or how to split money across assets.\n"
+    "- Never predict future stock prices or market direction; never generate buy, sell or hold signals.\n"
+    "- Never promise, estimate or guarantee returns.\n"
+    "- Never tailor investment suggestions to a user's age, income, savings, goals or risk tolerance.\n"
+    "- Never invent live prices, news, earnings, ratios or market data. Only state a live price/news "
+    "figure if it is given to you in a 'LIVE DATA' section below; otherwise say you don't have it.\n"
+    "- Use real companies/securities ONLY as neutral educational examples, never as recommendations.\n"
+    "- Always remain neutral and encourage users to do their own research and, for personal decisions, "
+    "to consult a licensed financial professional. You never replace licensed financial advice.\n"
+    "If the user asks what THEY should buy/sell/invest in, how to build/rate a portfolio, the 'best' "
+    "stock, or to predict a price, do NOT answer with a recommendation or prediction. Instead, briefly "
+    "explain, in neutral educational terms, how investors commonly evaluate such questions "
+    "(e.g. fundamentals, diversification, time horizon, risk) so the user can research and decide.\n"
     "Keep answers concise (2-5 short paragraphs), use relatable analogies, and define any jargon. "
-    "Translate everything, including the disclaimer, into the user's language."
+    "Do NOT add your own disclaimer or 'not financial advice' note — the platform automatically "
+    "appends the official educational disclaimer for you. "
+    "Reply entirely in the user's language."
 )
+
+# Canonical, legally-standardized disclaimer appended to every investment-related answer.
+DISCLAIMER_LINE = {
+    "en": "This information is provided for educational purposes only and does not constitute financial or investment advice.",
+    "de": "Diese Informationen dienen ausschließlich Bildungszwecken und stellen keine Finanz- oder Anlageberatung dar.",
+    "es": "Esta información se proporciona únicamente con fines educativos y no constituye asesoramiento financiero ni de inversión.",
+}
+
+
+def append_disclaimer(reply: str, lang: str) -> str:
+    """Deterministically ensure the localized educational disclaimer is present."""
+    line = DISCLAIMER_LINE.get(lang, DISCLAIMER_LINE["en"])
+    lowered = (reply or "").lower()
+    # Skip if a disclaimer (any language) is already present to avoid duplication.
+    markers = (
+        "not financial advice", "not investment advice", "keine finanzberatung",
+        "keine anlageberatung", "finanz- oder anlageberatung", "no es asesoramiento",
+        "no constituye asesoramiento", "asesoramiento financiero",
+        "educational purposes only", "bildungszwecken", "fines educativos",
+        "not constitute financial",
+    )
+    if any(m in lowered for m in markers):
+        return reply
+    return f"{reply.rstrip()}\n\n_{line}_"
 
 # Localized hard-refusal shown when a user asks for personalized advice / what to buy.
 ADVICE_REFUSAL = {
@@ -931,7 +960,8 @@ ADVICE_REFUSAL = {
     ),
 }
 
-# Intent patterns (EN/DE/ES) that request personalized advice — these are refused outright.
+# Intent patterns (EN/DE/ES) that request personalized advice — refused outright.
+# STRONG: always treated as advice, even if phrased as a question.
 _ADVICE_PATTERNS = [
     r"(what|which|welche[nrs]?|qu[eé]|cu[aá]l).{0,40}(should i|do i|to)?\s*(buy|invest|kaufen|investieren|comprar|invertir)",
     r"(should i|shall i|soll ich|sollte ich|debo|deber[ií]a|tengo que).{0,25}(buy|sell|invest|kaufen|verkaufen|investieren|comprar|vender|invertir)",
@@ -941,12 +971,42 @@ _ADVICE_PATTERNS = [
     r"(what.{0,12}do with my money|tell me what to do with|was soll ich mit meinem geld|qu[eé] hago con mi dinero|qu[eé] hacer con mi dinero|what to do with my (money|savings|cash))",
     r"(how|wie|c[oó]mo).{0,20}(buy|purchase|invest in|kaufe?|kaufen|comprar|compro|invertir en|invertir).{0,18}(stock|share|bitcoin|crypto|ethereum|gold|silver|etf|aktie|krypto|oro|plata|acci[oó]n|acciones)",
     r"(i want to|i wanna|i'd like to|i would like to|ich will|ich m[oö]chte|quiero|me gustar[ií]a).{0,18}(buy|invest|kaufen|investieren|comprar|invertir)",
+    # Price / market prediction & signals.
+    r"(predict|forecast|price target|prognos|vorhersage|voraussage|kursziel|predic|prediz|pron[oó]stic|precio objetivo)",
+    r"(buy|sell|kauf|verkauf)\s*signal|se\u00f1al(es)?\s+de\s+(compra|venta)",
+    # Allocation / how much to invest personally.
+    r"(how much|wie viel|cu[aá]nto).{0,25}(invest|allocate|put in|investieren|anlegen|invertir|poner)",
+    r"\ballocat|\bwie soll ich.{0,15}(aufteilen|verteilen)",
 ]
+
+# SOFT: personalized/imperative requests to produce a pick/portfolio. Skipped when the
+# message is clearly an educational question (see _EDU_LEADIN) so we still teach concepts.
+_ADVICE_SOFT_PATTERNS = [
+    r"(build|create|make|generate|design|give me|rate|analyze|analyse|review|optimize|optimise|erstelle?|erstellen|bewerte?|bewerten|analysiere?|crea|constru[iy]e?|arma|genera|generar|optimiza|analiza|eval[uú]a|califica).{0,25}(a |my |me a |mein[e]?[nrs]?|mi |un[a]? )?(portfolio|portefeuille|depot|portafolio|cartera)",
+    r"(recommend|suggest|pick|give me|gib mir|tell me|which is|what'?s|what is|empfiehl|empfehle|welche[nrs]?|ist das beste|nenne? mir|recomienda|sugiere|dame|cu[aá]l es|dime).{0,20}(best|top|beste[nrs]?|mejor(es)?).{0,18}(stock|share|etf|crypto|coin|fund|investment|aktie|krypto|fonds|acci[oó]n|acciones|inversi[oó]n)",
+]
+
+# Educational lead-ins: "what is / how does / explain …" — let these reach the tutor so it
+# can teach the concept instead of hard-refusing.
+_EDU_LEADIN = re.compile(
+    r"^\s*(what\s+is|what'?s|whats|how\s+(do|does|is|are|can|would|might)|why|when|who|explain|"
+    r"define|tell me about|difference between|was\s+ist|was\s+sind|wie\s+(funktioniert|funktionieren|"
+    r"kann|wird|bewerten)|erkl[aä]r|warum|unterschied|qu[eé]\s+es|qu[eé]\s+son|c[oó]mo\s+(funciona|se|"
+    r"eval[uú]an)|explica|por\s+qu[eé]|diferencia)",
+    re.IGNORECASE,
+)
+
 _ADVICE_RE = [re.compile(p, re.IGNORECASE) for p in _ADVICE_PATTERNS]
+_ADVICE_SOFT_RE = [re.compile(p, re.IGNORECASE) for p in _ADVICE_SOFT_PATTERNS]
 
 
 def is_advice_seeking(text: str) -> bool:
-    return any(rx.search(text) for rx in _ADVICE_RE)
+    if any(rx.search(text) for rx in _ADVICE_RE):
+        return True
+    # Soft patterns are advice unless the user is clearly asking an educational question.
+    if _EDU_LEADIN.match(text or ""):
+        return False
+    return any(rx.search(text) for rx in _ADVICE_SOFT_RE)
 
 # Keywords that indicate the user wants current / real-time information.
 _REALTIME_HINTS = (
@@ -1116,6 +1176,9 @@ async def tutor_chat(body: ChatBody, user: dict = Depends(get_current_user)):
     except Exception as e:
         logger.error(f"Tutor error: {e}")
         raise HTTPException(status_code=502, detail=L("tutor_unavailable"))
+
+    # Deterministically guarantee the localized educational disclaimer is present.
+    reply = append_disclaimer(reply, lang)
 
     now = datetime.now(timezone.utc)
     day = now.strftime("%Y-%m-%d")
