@@ -83,7 +83,7 @@ export default function Onboarding() {
 
   return (
     <View style={styles.root}>
-      <LinearGradient colors={["#052E20", colors.surface, colors.surface]} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={["#163b2c", "#0f2820", colors.surface]} locations={[0, 0.5, 1]} style={StyleSheet.absoluteFill} />
 
       <View style={[styles.topBar, { paddingTop: insets.top + spacing.sm }]}>
         <Pressable testID="onboarding-skip" onPress={finish} hitSlop={12}>

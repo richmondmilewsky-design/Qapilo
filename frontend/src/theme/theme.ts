@@ -1,34 +1,52 @@
 import { Platform } from "react-native";
 
 export const colors = {
-  surface: "#09090B",
-  onSurface: "#FAFAFA",
-  surfaceSecondary: "#18181B",
-  onSurfaceSecondary: "#E4E4E7",
-  surfaceTertiary: "#27272A",
-  onSurfaceTertiary: "#D4D4D8",
-  brand: "#10B981",
-  onBrand: "#022C22",
-  brandDark: "#047857",
-  amber: "#F59E0B",
-  onAmber: "#451A03",
-  error: "#EF4444",
-  muted: "#71717A",
-  border: "#27272A",
-  borderStrong: "#3F3F46",
+  surface: "#0a1210",
+  onSurface: "#ffffff",
+  surfaceSecondary: "rgba(255,255,255,0.05)",
+  onSurfaceSecondary: "rgba(255,255,255,0.72)",
+  surfaceTertiary: "rgba(255,255,255,0.08)",
+  onSurfaceTertiary: "rgba(255,255,255,0.6)",
+  brand: "#22d99a",
+  onBrand: "#06231a",
+  brandDark: "#159168",
+  amber: "#e79a2e",
+  onAmber: "#2a1806",
+  error: "#ef4444",
+  muted: "rgba(255,255,255,0.5)",
+  border: "rgba(255,255,255,0.09)",
+  borderStrong: "rgba(255,255,255,0.16)",
+};
+
+// Reusable gradients + accent tokens for the Qapilo visual system.
+export const gradients = {
+  brand: ["#22d99a", "#159168"] as const,       // CTAs
+  brandProgress: ["#159168", "#22d99a"] as const, // progress fill
+  loginBg: ["#163b2c", "#0a1210"] as const,      // login radial-ish
+};
+
+export const shadows = {
+  brand: {
+    shadowColor: "#22d99a",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 8,
+  },
 };
 
 export const fonts = {
-  display: "BarlowCondensed-SemiBold",
-  displayMed: "BarlowCondensed-Medium",
-  displayReg: "BarlowCondensed-Regular",
-  body: "Manrope-Regular",
-  bodyMed: "Manrope-Medium",
-  bodySemi: "Manrope-SemiBold",
+  display: "Sora-ExtraBold",
+  displayMed: "Sora-Bold",
+  displayReg: "Sora-SemiBold",
+  body: "Inter-Regular",
+  bodyMed: "Inter-Medium",
+  bodySemi: "Inter-SemiBold",
+  bodyBold: "Inter-Bold",
 };
 
 export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32, xxxl: 48 };
-export const radius = { sm: 6, md: 12, lg: 20, pill: 999 };
+export const radius = { sm: 8, md: 12, lg: 16, xl: 20, pill: 999 };
 
 // Lesson node icons -> MaterialCommunityIcons safe names
 export const LESSON_ICONS: Record<string, string> = {

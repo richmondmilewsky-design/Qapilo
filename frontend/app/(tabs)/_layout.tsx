@@ -11,10 +11,10 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.brand,
-        tabBarInactiveTintColor: colors.muted,
+        tabBarInactiveTintColor: "rgba(255,255,255,0.45)",
         tabBarStyle: {
-          backgroundColor: colors.surfaceSecondary,
-          borderTopColor: colors.border,
+          backgroundColor: "#0d1613",
+          borderTopColor: "rgba(255,255,255,0.08)",
           borderTopWidth: 1,
           height: Platform.OS === "ios" ? 88 : 68,
           paddingTop: 8,
@@ -27,35 +27,35 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: t("tab.learn"),
-          tabBarIcon: ({ color, size }) => <Ionicons name="school" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="school-outline" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
         name="explore"
         options={{
           title: t("tab.explore"),
-          tabBarIcon: ({ color, size }) => <Ionicons name="stats-chart" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="stats-chart-outline" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
         name="tutor"
         options={{
           title: t("tab.tutor"),
-          tabBarIcon: ({ color, size }) => <Ionicons name="chatbubbles" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="chatbubbles-outline" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
         name="leaderboard"
         options={{
           title: t("tab.leaderboard"),
-          tabBarIcon: ({ color, size }) => <Ionicons name="trophy" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="trophy-outline" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: t("tab.profile"),
-          tabBarIcon: ({ color, size }) => <Ionicons name="person" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="person-outline" size={size} color={color} />,
         }}
       />
     </Tabs>

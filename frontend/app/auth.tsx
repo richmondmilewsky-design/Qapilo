@@ -85,7 +85,8 @@ export default function AuthScreen() {
   return (
     <View style={styles.root}>
       <LinearGradient
-        colors={["#052E20", colors.surface, colors.surface]}
+        colors={["#163b2c", "#0f2820", colors.surface]}
+        locations={[0, 0.5, 1]}
         style={StyleSheet.absoluteFill}
       />
       <KeyboardAvoidingView

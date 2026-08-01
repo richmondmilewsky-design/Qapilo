@@ -7,8 +7,9 @@ import {
   ActivityIndicator,
   ViewStyle,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
-import { colors, fonts, radius, spacing } from "@/src/theme/theme";
+import { colors, fonts, radius, spacing, gradients, shadows } from "@/src/theme/theme";
 
 export function PrimaryButton({
   label,
@@ -27,11 +28,11 @@ export function PrimaryButton({
   testID?: string;
   style?: ViewStyle;
 }) {
-  const bg =
-    variant === "brand" ? colors.brand : variant === "amber" ? colors.amber : "transparent";
   const fg =
     variant === "brand" ? colors.onBrand : variant === "amber" ? colors.onAmber : colors.onSurface;
   const isDisabled = disabled || loading;
+  const gradient = variant === "brand" ? gradients.brand : variant === "amber" ? ["#f0a83e", "#d98420"] as const : null;
+
   return (
     <Pressable
       testID={testID}
@@ -41,21 +42,23 @@ export function PrimaryButton({
         onPress();
       }}
       style={({ pressed }) => [
-        styles.btn,
+        variant === "brand" ? shadows.brand : null,
         {
-          backgroundColor: bg,
-          borderWidth: variant === "outline" ? 1.5 : 0,
-          borderColor: colors.borderStrong,
-          opacity: isDisabled ? 0.5 : pressed ? 0.85 : 1,
+          borderRadius: radius.md,
+          opacity: isDisabled ? 0.5 : pressed ? 0.9 : 1,
           transform: [{ scale: pressed ? 0.98 : 1 }],
         },
         style,
       ]}
     >
-      {loading ? (
-        <ActivityIndicator color={fg} />
+      {gradient ? (
+        <LinearGradient colors={gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.btn}>
+          {loading ? <ActivityIndicator color={fg} /> : <Text style={[styles.btnText, { color: fg }]}>{label}</Text>}
+        </LinearGradient>
       ) : (
-        <Text style={[styles.btnText, { color: fg }]}>{label}</Text>
+        <View style={[styles.btn, styles.outline]}>
+          {loading ? <ActivityIndicator color={fg} /> : <Text style={[styles.btnText, { color: fg }]}>{label}</Text>}
+        </View>
       )}
     </Pressable>
   );
@@ -77,6 +80,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: spacing.lg,
   },
-  btnText: { fontFamily: fonts.bodySemi, fontSize: 16, letterSpacing: 0.3 },
+  outline: {
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  btnText: { fontFamily: fonts.bodySemi, fontSize: 16, letterSpacing: 0.2 },
   center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.surface },
 });

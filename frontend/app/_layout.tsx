@@ -18,12 +18,13 @@ SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
   const [iconsLoaded, iconsError] = useIconFonts();
   const [appFontsLoaded, appFontsError] = useFonts({
-    "BarlowCondensed-Regular": require("../assets/fonts/BarlowCondensed-Regular.ttf"),
-    "BarlowCondensed-Medium": require("../assets/fonts/BarlowCondensed-Medium.ttf"),
-    "BarlowCondensed-SemiBold": require("../assets/fonts/BarlowCondensed-SemiBold.ttf"),
-    "Manrope-Regular": require("../assets/fonts/Manrope-Regular.ttf"),
-    "Manrope-Medium": require("../assets/fonts/Manrope-Medium.ttf"),
-    "Manrope-SemiBold": require("../assets/fonts/Manrope-SemiBold.ttf"),
+    "Sora-SemiBold": require("../assets/fonts/Sora-SemiBold.ttf"),
+    "Sora-Bold": require("../assets/fonts/Sora-Bold.ttf"),
+    "Sora-ExtraBold": require("../assets/fonts/Sora-ExtraBold.ttf"),
+    "Inter-Regular": require("../assets/fonts/Inter-Regular.ttf"),
+    "Inter-Medium": require("../assets/fonts/Inter-Medium.ttf"),
+    "Inter-SemiBold": require("../assets/fonts/Inter-SemiBold.ttf"),
+    "Inter-Bold": require("../assets/fonts/Inter-Bold.ttf"),
   });
 
   const ready = (iconsLoaded || iconsError) && (appFontsLoaded || appFontsError);
