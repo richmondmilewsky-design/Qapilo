@@ -107,7 +107,7 @@ export default function AuthScreen() {
             </View>
             <View style={styles.logoWrap}>
               <Image
-                source={require("../assets/images/icon.png")}
+                source={require("../assets/images/qapilo-logo.png")}
                 style={styles.logoImg}
                 resizeMode="cover"
               />
