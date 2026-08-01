@@ -176,6 +176,7 @@ export default function SettingsScreen() {
         <Text style={styles.groupLabel}>{t("settings.preferences")}</Text>
         <View style={styles.card}>
           <Row testID="row-language" icon="language-outline" label={t("profile.language")} onPress={openPicker} />
+          <Row testID="row-support" icon="help-buoy-outline" label={t("settings.support")} onPress={() => router.push("/support")} />
           <Row testID="row-logout" icon="log-out-outline" label={t("profile.logout")} onPress={doLogout} right={<View />} />
         </View>
       </ScrollView>

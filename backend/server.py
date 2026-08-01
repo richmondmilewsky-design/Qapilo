@@ -4,6 +4,8 @@ import base64
 import asyncio
 import random
 import re
+import secrets
+import hashlib
 import logging
 from pathlib import Path
 from datetime import datetime, timezone, timedelta, date
@@ -25,6 +27,7 @@ from curriculum import (
 from errors_i18n import L, set_lang_from_header
 from stocks import STOCKS, STOCK_MAP, CATEGORIES, fallback_quote, fallback_history
 from emergentintegrations.llm.chat import LlmChat, UserMessage
+import email_service as email
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
@@ -39,6 +42,15 @@ JWT_EXPIRES_DAYS = 30
 FINNHUB_KEY = os.environ.get("FINNHUB_API_KEY", "").strip()
 TAVILY_KEY = os.environ.get("TAVILY_API_KEY", "").strip()
 DAILY_GOAL_XP = 50
+
+# --- Transactional email / password reset config ---
+RESET_TOKEN_TTL_MIN = int(os.environ.get("RESET_TOKEN_TTL_MIN", "30"))
+EMAIL_LOG_RETENTION_DAYS = int(os.environ.get("EMAIL_LOG_RETENTION_DAYS", "90"))
+SUPPORT_RETENTION_DAYS = int(os.environ.get("SUPPORT_RETENTION_DAYS", "180"))
+QAPILO_APP_URL = os.environ.get("QAPILO_APP_URL", "").strip().rstrip("/")
+SUPPORT_EMAIL = os.environ.get("QAPILO_SUPPORT_EMAIL", "").strip()
+# In-memory rate-limit buckets (email + IP) for password reset & support.
+_rl_buckets: dict = {}
 
 # --- Monetization / AI config ---
 EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "").strip()
@@ -76,6 +88,26 @@ class SignupBody(BaseModel):
     email: EmailStr
     password: str = Field(min_length=6)
     name: Optional[str] = None
+    lang: Optional[str] = "en"
+
+
+class ForgotPasswordBody(BaseModel):
+    email: EmailStr
+    lang: Optional[str] = "en"
+
+
+class ResetPasswordBody(BaseModel):
+    token: str
+    new_password: str
+    lang: Optional[str] = "en"
+
+
+class SupportBody(BaseModel):
+    category: str
+    subject: str
+    message: str
+    reply_email: Optional[EmailStr] = None
+    lang: Optional[str] = "en"
 
 
 class LoginBody(BaseModel):
@@ -243,12 +275,40 @@ async def get_current_user(request: Request) -> dict:
     user = await db.users.find_one({"user_id": user_id}, {"_id": 0})
     if not user:
         raise HTTPException(status_code=401, detail=L("user_not_found"))
+    # Session invalidation after password reset: reject tokens issued before the reset.
+    inv = user.get("sessions_invalid_before")
+    if inv:
+        iat = payload.get("iat", 0)
+        if isinstance(iat, (int, float)) and iat < inv:
+            raise HTTPException(status_code=401, detail=L("invalid_token"))
     return user
+
+
+def _hash_token(raw: str) -> str:
+    return hashlib.sha256(raw.encode()).hexdigest()
+
+
+def _rate_limited(key: str, limit: int, window_sec: int) -> bool:
+    """Return True if `key` has exceeded `limit` events within `window_sec`."""
+    import time
+    now = time.time()
+    bucket = [t for t in _rl_buckets.get(key, []) if now - t < window_sec]
+    if len(bucket) >= limit:
+        _rl_buckets[key] = bucket
+        return True
+    bucket.append(now)
+    _rl_buckets[key] = bucket
+    return False
 
 
 async def ensure_indexes():
     await db.users.create_index("email", unique=True, sparse=True)
     await db.users.create_index("user_id", unique=True)
+    await db.password_resets.create_index("expires_at", expireAfterSeconds=0)
+    await db.email_events.create_index(
+        "created_at", expireAfterSeconds=EMAIL_LOG_RETENTION_DAYS * 86400)
+    await db.support_requests.create_index(
+        "created_at", expireAfterSeconds=SUPPORT_RETENTION_DAYS * 86400)
 
 
 SEED_BOTS = [
@@ -308,6 +368,9 @@ async def signup(body: SignupBody):
         "accepted_terms": False,
     }
     await db.users.insert_one(user)
+    asyncio.create_task(email.send_and_log(
+        db, "trial_started", (body.lang or "en"), user["email"], user["user_id"],
+        {"days": TRIAL_DAYS}))
     return {"token": make_token(user["user_id"]), "user": public_user(user)}
 
 
@@ -1363,6 +1426,9 @@ async def subscription_activate(body: dict, user: dict = Depends(get_current_use
         {"$set": {"pro_active": active, "subscription_status": status, "subscription_id": sub_id}},
     )
     fresh = await db.users.find_one({"user_id": user["user_id"]}, {"_id": 0})
+    if active and fresh.get("email"):
+        asyncio.create_task(email.send_and_log(
+            db, "subscription_activated", "en", fresh["email"], fresh["user_id"]))
     return {"activated": active, "status": status, "user": public_user(fresh)}
 
 
@@ -1407,6 +1473,9 @@ async def subscription_cancel(user: dict = Depends(get_current_user)):
         {"$set": {"pro_active": False, "subscription_status": "CANCELLED"}},
     )
     fresh = await db.users.find_one({"user_id": user["user_id"]}, {"_id": 0})
+    if fresh.get("email"):
+        asyncio.create_task(email.send_and_log(
+            db, "subscription_cancelled", "en", fresh["email"], fresh["user_id"]))
     return {"user": public_user(fresh)}
 
 
@@ -1443,6 +1512,14 @@ async def account_delete(user: dict = Depends(get_current_user)):
         except Exception as e:
             logger.warning(f"sub cancel on delete failed: {e}")
     await db.chat_messages.delete_many({"user_id": user["user_id"]})
+    # Send the completion email BEFORE removing the address (deletion is immediate).
+    if user.get("email"):
+        try:
+            await email.send_and_log(
+                db, "account_deleted", "en", user["email"], None)
+        except Exception:
+            logger.warning("account_deleted email failed")
+    await db.password_resets.delete_many({"user_id": user["user_id"]})
     await db.users.delete_one({"user_id": user["user_id"]})
     return {"deleted": True}
 
@@ -1467,6 +1544,114 @@ async def clear_tutor_history(user: dict = Depends(get_current_user)):
     """Delete all of the user's AI Tutor chat messages."""
     res = await db.chat_messages.delete_many({"user_id": user["user_id"]})
     return {"deleted": True, "count": res.deleted_count}
+
+
+@api.post("/auth/forgot-password")
+async def forgot_password(body: ForgotPasswordBody, request: Request):
+    """Start a password reset. Always returns a neutral response (no account
+    enumeration). Only password accounts actually receive an email."""
+    ip = (request.client.host if request.client else "unknown")
+    lang = body.lang or "en"
+    if _rate_limited(f"fp_email:{body.email.lower()}", 3, 900) or _rate_limited(f"fp_ip:{ip}", 12, 3600):
+        raise HTTPException(status_code=429, detail=L("rate_limited"))
+    user = await db.users.find_one({"email": body.email.lower()})
+    if user and user.get("hashed_password"):
+        raw = secrets.token_urlsafe(32)
+        # Invalidate older unused tokens for this user, then store only the hash.
+        await db.password_resets.delete_many({"user_id": user["user_id"]})
+        await db.password_resets.insert_one({
+            "user_id": user["user_id"],
+            "token_hash": _hash_token(raw),
+            "created_at": datetime.now(timezone.utc),
+            "expires_at": datetime.now(timezone.utc) + timedelta(minutes=RESET_TOKEN_TTL_MIN),
+            "used": False,
+        })
+        ctx = {"ttl": RESET_TOKEN_TTL_MIN, "token": raw}
+        if QAPILO_APP_URL:
+            ctx["link"] = f"{QAPILO_APP_URL}/reset-password?token={raw}"
+        asyncio.create_task(email.send_and_log(
+            db, "password_reset", lang, user["email"], user["user_id"], ctx))
+    return {"ok": True, "message": L("reset_sent")}
+
+
+@api.post("/auth/reset-password")
+async def reset_password(body: ResetPasswordBody):
+    if len(body.new_password) < 8:
+        raise HTTPException(status_code=400, detail=L("weak_password"))
+    rec = await db.password_resets.find_one({"token_hash": _hash_token(body.token), "used": False})
+    if not rec:
+        raise HTTPException(status_code=400, detail=L("reset_invalid"))
+    exp = rec.get("expires_at")
+    if exp is not None and exp.tzinfo is None:
+        exp = exp.replace(tzinfo=timezone.utc)
+    if not exp or exp < datetime.now(timezone.utc):
+        await db.password_resets.delete_one({"_id": rec["_id"]})
+        raise HTTPException(status_code=400, detail=L("reset_invalid"))
+    import time
+    await db.users.update_one(
+        {"user_id": rec["user_id"]},
+        {"$set": {"hashed_password": pwd_context.hash(body.new_password),
+                  "sessions_invalid_before": int(time.time())}},
+    )
+    # Single-use: remove all reset records for this user.
+    await db.password_resets.delete_many({"user_id": rec["user_id"]})
+    return {"ok": True, "message": L("reset_ok")}
+
+
+@api.post("/support/request")
+async def support_request(body: SupportBody, request: Request):
+    """Store a support request, email the user a confirmation, and forward to the
+    configured support inbox if one is set. No secrets/tokens are stored or sent."""
+    category = (body.category or "").strip()[:40]
+    subject = (body.subject or "").strip()[:120]
+    message = (body.message or "").strip()[:4000]
+    if not category or not subject or not message:
+        raise HTTPException(status_code=400, detail=L("support_invalid"))
+    # Basic header-injection guard for the subject/category.
+    if any(c in subject + category for c in ("\r", "\n")):
+        raise HTTPException(status_code=400, detail=L("support_invalid"))
+    ip = (request.client.host if request.client else "unknown")
+    if _rate_limited(f"sup_ip:{ip}", 5, 3600):
+        raise HTTPException(status_code=429, detail=L("rate_limited"))
+
+    # Identify user if signed in (optional).
+    user = None
+    auth = request.headers.get("Authorization", "")
+    if auth.lower().startswith("bearer "):
+        try:
+            uid = jwt.decode(auth.split(" ", 1)[1].strip(), JWT_SECRET, algorithms=[JWT_ALG]).get("sub")
+            user = await db.users.find_one({"user_id": uid})
+        except Exception:
+            user = None
+    reply_email = (user.get("email") if user else None) or (body.reply_email or None)
+    lang = body.lang or "en"
+    ref = f"QS-{secrets.token_hex(4).upper()}"
+
+    await db.support_requests.insert_one({
+        "ref": ref,
+        "user_ref": user["user_id"] if user else None,
+        "category": category,
+        "subject": subject,
+        "message": message,
+        "reply_email": reply_email,
+        "language": lang,
+        "created_at": datetime.now(timezone.utc),
+        "status": "received",
+    })
+    if reply_email:
+        asyncio.create_task(email.send_and_log(
+            db, "support_received", lang, reply_email,
+            user["user_id"] if user else None,
+            {"ref": ref, "category": category, "subj": subject}))
+    # Forward to support inbox only if configured (owner-provided; never invented).
+    if SUPPORT_EMAIL:
+        asyncio.create_task(email.send_and_log(
+            db, "support_forwarded", lang, SUPPORT_EMAIL, None,
+            {"ref": ref, "category": category, "subj": subject,
+             "frm": reply_email or "n/a", "lng": lang, "msg": message},
+            reply_to=reply_email))
+        logger.info(f"support forwarded ref={ref}")
+    return {"ok": True, "ref": ref, "message": L("support_ok")}
 
 
 app.include_router(api)

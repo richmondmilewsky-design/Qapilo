@@ -12,8 +12,6 @@ import { colors, fonts, radius, spacing, BADGE_ICONS } from "@/src/theme/theme";
 import { Loading } from "@/src/components/ui";
 import StockLogo from "@/src/components/StockLogo";
 
-const COVER =
-  "https://images.unsplash.com/photo-1638184984605-af1f05249a56?crop=entropy&cs=srgb&fm=jpg&q=85&w=1000";
 
 type Badge = { id: string; name: string; desc: string; icon: string; earned: boolean };
 type WatchStock = { symbol: string; name: string; logo: string; price: number; change_pct: number; in_watchlist: boolean };
@@ -75,11 +73,11 @@ export default function ProfileScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand} />
         }
       >
-        {/* Hero banner */}
+        {/* Hero banner — branded local gradient (no external image request) */}
         <View style={styles.banner}>
-          <Image source={{ uri: COVER }} style={StyleSheet.absoluteFill} contentFit="cover" />
           <LinearGradient
-            colors={["rgba(9,9,11,0.2)", colors.surface]}
+            colors={["#0B3D2E", "#0F9D58", colors.surface]}
+            locations={[0, 0.55, 1]}
             style={StyleSheet.absoluteFill}
           />
           <View style={[styles.bannerContent, { paddingTop: insets.top + spacing.xl }]}>

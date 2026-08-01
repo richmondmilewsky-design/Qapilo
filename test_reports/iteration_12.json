@@ -1,0 +1,32 @@
+{
+  "summary": "Iteration 12 — Communications & privacy infrastructure. Backend pytest 13/13 PASSED (test_iteration_12_comms.py). Frontend E2E all six flows verified on mobile 375x667 viewport: forgot-password neutral response, invalid reset error, support signed-out with QS-XXXX reference, settings row-support navigation, auth forgot-password-link, and profile screen renders local gradient banner with zero remote/broken images and ZERO images.unsplash.com requests captured over the full session. Backend contract confirmed: forgot returns 200 for both unknown/known email with identical neutral message, 4th same-email hit within window returns 429; reset accepts an injected valid token then rejects reuse, invalid/weak inputs return 400; after reset the pre-existing JWT is rejected (401 on /api/account/export), old-password login → 401, new-password login → 200; POST /support/request returns 200 with 'ref' starting with 'QS-', missing subject/message and newline in subject return 400; password_resets stores only token_hash (64-char sha256, no raw token/link fields); email_events log holds only event_id/template/status/language/created_at/user_ref with no email address, no raw token, no html body.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration_12_comms.py",
+    "/app/test_reports/pytest/pytest_iteration_12.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py:1549 forgot-password uses per-email (3/900s) AND per-IP (12/3600s) rate-limit buckets AND fires the send_and_log task inside asyncio.create_task so the endpoint always returns quickly regardless of provider latency — good defence-in-depth.",
+    "server.py:1577 reset-password checks length BEFORE token lookup (fast fail); on success it sets sessions_invalid_before = int(time.time()) which is compared against JWT iat inside get_current_user → old JWTs correctly invalidated. Note: JWT iat has 1-second granularity, so tokens minted in the same second as the reset could theoretically still be accepted; test intentionally sleeps 1.2s before triggering reset to avoid flakiness. Not a real-world issue but worth documenting.",
+    "server.py:1601 support/request applies header-injection guard on subject+category only (correctly, since message goes into body). reply_email is stored as-is but never used as an SMTP header — it is forwarded via httpx JSON payload's contact_email field, so newline in email is not exploitable via headers.",
+    "email_service.py:328 send_and_log NEVER raises (wraps provider call in try/except) so a 422 'undeliverable' from the managed proxy on placeholder domains is correctly recorded as failed and does not break the API request. Matches main-agent note.",
+    "frontend forgot-password.tsx, reset-password.tsx, support.tsx all pass body as raw object to apiRequest (no double JSON.stringify — regression risk documented in iteration_11 fully avoided in new screens).",
+    "profile screen no longer renders any <img> tags and issues no unsplash network requests — confirmed via page.on('request') capture across signup → agreement → profile → settings → support (0/n unsplash hits)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration_12_comms.py (new)"
+  ],
+  "success_rate": {"backend": "100% (13/13)", "frontend": "100% (all 6 E2E flows verified)"},
+  "seed_data_creation": "Throwaway TEST_ users created by pytest fixtures + one UI signup test_it12ui_* — all cleaned up (0 residual TEST_ users, 0 residual password_resets, test support_requests row deleted).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "For future runs: to test reset-password with a valid token from the UI, inject the row directly into Mongo using the exact pattern in TestResetPassword._inject_token (sha256 hex of the raw token). QAPILO_APP_URL and QAPILO_SUPPORT_EMAIL are intentionally empty in /app/backend/.env — email delivery via the managed Resend proxy will therefore log status=failed for many payloads; this is EXPECTED and never breaks the API request. Frontend uses process.env.EXPO_PUBLIC_BACKEND_URL (public URL). Auth signup routes brand-new users to /agreement first; must check both required consents before reaching (tabs)/profile.",
+  "rca_of_issue": "N/A — no bugs found. All backend contracts and frontend flows behaved exactly as specified."
+}

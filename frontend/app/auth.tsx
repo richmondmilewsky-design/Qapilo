@@ -197,6 +197,16 @@ export default function AuthScreen() {
               style={{ marginTop: spacing.md }}
             />
 
+            {mode === "login" && (
+              <Pressable
+                testID="forgot-password-link"
+                onPress={() => router.push("/forgot-password")}
+                style={{ alignSelf: "center", marginTop: spacing.md }}
+              >
+                <Text style={styles.toggleLink}>{t("auth.forgotLink")}</Text>
+              </Pressable>
+            )}
+
             <Pressable
               testID="toggle-auth-mode"
               onPress={() => {

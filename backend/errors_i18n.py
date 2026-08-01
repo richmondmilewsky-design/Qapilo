@@ -53,6 +53,41 @@ ERRORS = {
         "de": "Apple-Anmeldung konnte nicht verifiziert werden",
         "es": "No se pudo verificar el inicio de sesión con Apple",
     },
+    "reset_sent": {
+        "en": "If an account exists for that email, we've sent password reset instructions.",
+        "de": "Falls ein Konto mit dieser E-Mail existiert, haben wir eine Anleitung zum Zurücksetzen des Passworts gesendet.",
+        "es": "Si existe una cuenta con ese correo, hemos enviado instrucciones para restablecer la contraseña.",
+    },
+    "reset_invalid": {
+        "en": "This reset link is invalid or has expired.",
+        "de": "Dieser Link zum Zurücksetzen ist ungültig oder abgelaufen.",
+        "es": "Este enlace de restablecimiento no es válido o ha caducado.",
+    },
+    "weak_password": {
+        "en": "Password must be at least 8 characters.",
+        "de": "Das Passwort muss mindestens 8 Zeichen lang sein.",
+        "es": "La contraseña debe tener al menos 8 caracteres.",
+    },
+    "rate_limited": {
+        "en": "Too many requests. Please try again later.",
+        "de": "Zu viele Anfragen. Bitte versuche es später erneut.",
+        "es": "Demasiadas solicitudes. Inténtalo de nuevo más tarde.",
+    },
+    "support_invalid": {
+        "en": "Please fill in all required fields.",
+        "de": "Bitte fülle alle erforderlichen Felder aus.",
+        "es": "Por favor, completa todos los campos obligatorios.",
+    },
+    "reset_ok": {
+        "en": "Your password has been updated. Please sign in again.",
+        "de": "Dein Passwort wurde aktualisiert. Bitte melde dich erneut an.",
+        "es": "Tu contraseña se ha actualizado. Vuelve a iniciar sesión.",
+    },
+    "support_ok": {
+        "en": "Your support request was received.",
+        "de": "Deine Supportanfrage wurde empfangen.",
+        "es": "Tu solicitud de soporte fue recibida.",
+    },
     "lesson_not_found": {
         "en": "Lesson not found",
         "de": "Lektion nicht gefunden",
