@@ -88,9 +88,9 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" },
+  backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.75)", justifyContent: "flex-end" },
   sheet: {
-    backgroundColor: colors.surfaceSecondary,
+    backgroundColor: colors.elevated,
     borderTopLeftRadius: radius.lg,
     borderTopRightRadius: radius.lg,
     padding: spacing.lg,
@@ -107,6 +107,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
+    backgroundColor: colors.elevatedSecondary,
     marginBottom: spacing.sm,
   },
   rowActive: { borderColor: colors.brand, backgroundColor: "#0C2018" },

@@ -66,3 +66,6 @@ See `/app/memory/test_credentials.md` (demo@tradequest.app / demo123).
 ## Feature — Iteration 15 (2026-06): Password strength + Stay signed in
 - Signup: live password-strength meter (3 bars + Weak/Medium/Strong), score = length>=8 + mixed case + digit + symbol. Hidden in login mode / when empty.
 - Auth: "Stay signed in" toggle (default ON). Writes AsyncStorage `tq_remember`; when OFF, AuthContext drops the persisted SecureStore token on next cold app launch (device-only behavior). Localized EN/DE/ES. Frontend E2E passed (iteration_15).
+
+## Fix — Iteration 16 (2026-06): Opaque modal/overlay backgrounds
+- Modal cards were translucent (surfaceSecondary = rgba white 0.05) causing background bleed-through / unreadable text. Added opaque theme tokens `elevated`/`elevatedSecondary` and applied to all overlays: language picker (I18nContext), AI Tutor first-use notice (tutor.tsx), settings data-export sheet (settings.tsx). Backdrops darkened to 0.75. Verified via screenshots — text now crisp.

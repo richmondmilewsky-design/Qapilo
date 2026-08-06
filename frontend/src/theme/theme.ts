@@ -7,6 +7,8 @@ export const colors = {
   onSurfaceSecondary: "rgba(255,255,255,0.72)",
   surfaceTertiary: "rgba(255,255,255,0.08)",
   onSurfaceTertiary: "rgba(255,255,255,0.6)",
+  elevated: "#14201b",
+  elevatedSecondary: "#1d2d26",
   brand: "#22d99a",
   onBrand: "#06231a",
   brandDark: "#159168",
