@@ -69,3 +69,8 @@ See `/app/memory/test_credentials.md` (demo@tradequest.app / demo123).
 
 ## Fix — Iteration 16 (2026-06): Opaque modal/overlay backgrounds
 - Modal cards were translucent (surfaceSecondary = rgba white 0.05) causing background bleed-through / unreadable text. Added opaque theme tokens `elevated`/`elevatedSecondary` and applied to all overlays: language picker (I18nContext), AI Tutor first-use notice (tutor.tsx), settings data-export sheet (settings.tsx). Backdrops darkened to 0.75. Verified via screenshots — text now crisp.
+
+## Features — Iteration 16 (2026-06): Biometric login, Streak celebration, Email verification
+- Biometric quick sign-in (expo-local-authentication, device-only): opt-in prompt after first password login, then Face ID/Touch ID button on auth screen. Face ID permission added to app.json.
+- Streak celebration overlay on first login of day (streak>=1), once/day.
+- Non-blocking email verification: 6-digit code emailed on password signup; amber banner + code-entry modal on Learn; endpoints /auth/verify-email + /auth/resend-verification; public_user + /auth/me expose email_verified. All EN/DE/ES.

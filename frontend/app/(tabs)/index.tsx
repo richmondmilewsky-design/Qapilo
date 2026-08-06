@@ -7,6 +7,8 @@ import {
   Pressable,
   RefreshControl,
   Animated,
+  Modal,
+  TextInput,
 } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -36,7 +38,7 @@ type Unit = { id: string; title: string; subtitle: string; color: string; tier: 
 const OFFSETS = [0, 52, 74, 52, 0, -52, -74, -52];
 
 export default function LearnScreen() {
-  const { user, refresh } = useAuth();
+  const { user, refresh, verifyEmail, resendVerification } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t, locale } = useI18n();
@@ -46,6 +48,15 @@ export default function LearnScreen() {
   const [nudgeDismissed, setNudgeDismissed] = useState(false);
   const [welcome, setWelcome] = useState<{ name: string; mode: string } | null>(null);
   const welcomeAnim = useRef(new Animated.Value(0)).current;
+  const [justLoggedIn, setJustLoggedIn] = useState(false);
+  const [streakCele, setStreakCele] = useState(false);
+  const streakAnim = useRef(new Animated.Value(0)).current;
+  const [verifyOpen, setVerifyOpen] = useState(false);
+  const [verifyCode, setVerifyCode] = useState("");
+  const [verifyLoading, setVerifyLoading] = useState(false);
+  const [verifyErr, setVerifyErr] = useState("");
+  const [verifyMsg, setVerifyMsg] = useState("");
+  const [verifyDone, setVerifyDone] = useState(false);
 
   const todayKey = new Date().toISOString().slice(0, 10);
 
@@ -66,6 +77,7 @@ export default function LearnScreen() {
           await storage.removeItem("qapilo_welcome");
           const [mode, ...rest] = w.split("::");
           setWelcome({ mode, name: rest.join("::") });
+          setJustLoggedIn(true);
         }
         await Promise.all([load(), refresh()]);
         setLoading(false);
@@ -99,6 +111,57 @@ export default function LearnScreen() {
       if (finished) setWelcome(null);
     });
   }, [welcome, welcomeAnim]);
+
+  // Celebrate the streak once on the first login of the day.
+  useEffect(() => {
+    if (!justLoggedIn || !user) return;
+    (async () => {
+      const key = `tq_streak_celebrated_${todayKey}`;
+      const done = await storage.getItem(key, false);
+      if (!done && user.streak >= 1) {
+        await storage.setItem(key, true);
+        setStreakCele(true);
+      }
+      setJustLoggedIn(false);
+    })();
+  }, [justLoggedIn, user, todayKey]);
+
+  useEffect(() => {
+    if (!streakCele) return;
+    streakAnim.setValue(0);
+    Animated.spring(streakAnim, { toValue: 1, friction: 6, useNativeDriver: true }).start();
+    const timer = setTimeout(() => {
+      Animated.timing(streakAnim, { toValue: 0, duration: 250, useNativeDriver: true }).start(
+        ({ finished }) => { if (finished) setStreakCele(false); }
+      );
+    }, 2600);
+    return () => clearTimeout(timer);
+  }, [streakCele, streakAnim]);
+
+  const submitVerify = async () => {
+    setVerifyErr(""); setVerifyMsg("");
+    if (verifyCode.trim().length < 6) return;
+    setVerifyLoading(true);
+    try {
+      await verifyEmail(verifyCode.trim(), locale);
+      setVerifyDone(true);
+      setTimeout(() => { setVerifyOpen(false); setVerifyDone(false); setVerifyCode(""); }, 1500);
+    } catch (e: any) {
+      setVerifyErr(e.message || t("common.somethingWrong"));
+    } finally {
+      setVerifyLoading(false);
+    }
+  };
+
+  const resendVerify = async () => {
+    setVerifyErr(""); setVerifyMsg("");
+    try {
+      await resendVerification(locale);
+      setVerifyMsg(t("verify.resent"));
+    } catch (e: any) {
+      setVerifyErr(e.message || t("common.somethingWrong"));
+    }
+  };
 
   if (loading || !user) return <Loading testID="learn-loading" />;
 
@@ -147,6 +210,18 @@ export default function LearnScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand} />
         }
       >
+        {!user.email_verified && (
+          <Pressable
+            testID="verify-email-banner"
+            onPress={() => { setVerifyErr(""); setVerifyMsg(""); setVerifyOpen(true); }}
+            style={styles.verifyBanner}
+          >
+            <Ionicons name="mail-unread-outline" size={22} color={colors.amber} />
+            <Text style={styles.verifyBannerText}>{t("verify.banner")}</Text>
+            <Text style={styles.verifyBannerCta}>{t("verify.bannerCta")}</Text>
+          </Pressable>
+        )}
+
         {showNudge && (
           <Pressable
             testID="trial-nudge-banner"
@@ -261,6 +336,67 @@ export default function LearnScreen() {
           </View>
         </Animated.View>
       )}
+
+      {streakCele && user && (
+        <View style={styles.celeOverlay} testID="streak-celebration">
+          <Pressable style={styles.celeBackdrop} onPress={() => setStreakCele(false)} />
+          <Animated.View
+            style={[
+              styles.celeCard,
+              {
+                opacity: streakAnim,
+                transform: [
+                  { scale: streakAnim.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] }) },
+                ],
+              },
+            ]}
+          >
+            <MaterialCommunityIcons name="fire" size={64} color={colors.amber} />
+            <Text style={styles.celeNum}>{user.streak}</Text>
+            <Text style={styles.celeLabel}>{t("streak.label")}</Text>
+            <Text style={styles.celeSub}>{t("streak.keepGoing")}</Text>
+          </Animated.View>
+        </View>
+      )}
+
+      <Modal visible={verifyOpen} transparent animationType="fade" onRequestClose={() => setVerifyOpen(false)}>
+        <View style={styles.verifyBackdrop}>
+          <View style={styles.verifyCard} testID="verify-modal">
+            <Text style={styles.verifyTitle}>{t("verify.title")}</Text>
+            <Text style={styles.verifySubtitle}>{t("verify.subtitle")}</Text>
+            {verifyDone ? (
+              <View style={styles.verifyDoneRow}>
+                <Ionicons name="checkmark-circle" size={22} color={colors.brand} />
+                <Text style={styles.verifyDoneText} testID="verify-success">{t("verify.success")}</Text>
+              </View>
+            ) : (
+              <>
+                <TextInput
+                  testID="verify-code-input"
+                  value={verifyCode}
+                  onChangeText={(v) => setVerifyCode(v.replace(/[^0-9]/g, ""))}
+                  keyboardType="number-pad"
+                  maxLength={6}
+                  placeholder={t("verify.placeholder")}
+                  placeholderTextColor={colors.muted}
+                  style={styles.verifyInput}
+                />
+                {verifyErr ? <Text style={styles.verifyErr}>{verifyErr}</Text> : null}
+                {verifyMsg ? <Text style={styles.verifyMsg}>{verifyMsg}</Text> : null}
+                <Pressable testID="verify-submit" onPress={submitVerify} style={styles.verifyBtn}>
+                  <Text style={styles.verifyBtnText}>{verifyLoading ? "…" : t("verify.submit")}</Text>
+                </Pressable>
+                <Pressable testID="verify-resend" onPress={resendVerify} style={{ alignSelf: "center", marginTop: spacing.md }}>
+                  <Text style={styles.verifyResend}>{t("verify.resend")}</Text>
+                </Pressable>
+              </>
+            )}
+            <Pressable onPress={() => setVerifyOpen(false)} style={{ alignSelf: "center", marginTop: spacing.md }}>
+              <Text style={styles.verifyClose}>{t("profile.close")}</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -365,6 +501,68 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   welcomeText: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.onBrand },
+  verifyBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
+    backgroundColor: "#1A1405",
+    borderWidth: 1,
+    borderColor: colors.amber,
+    borderRadius: radius.lg,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+  },
+  verifyBannerText: { flex: 1, fontFamily: fonts.bodyMed, fontSize: 13, color: colors.onSurface },
+  verifyBannerCta: { fontFamily: fonts.bodySemi, fontSize: 13, color: colors.amber },
+  celeOverlay: {
+    position: "absolute",
+    top: 0, left: 0, right: 0, bottom: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 30,
+  },
+  celeBackdrop: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.75)" },
+  celeCard: {
+    backgroundColor: colors.elevated,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: spacing.xxl,
+    paddingHorizontal: spacing.xxl,
+    alignItems: "center",
+    minWidth: 220,
+  },
+  celeNum: { fontFamily: fonts.display, fontSize: 56, color: colors.onSurface, marginTop: spacing.sm },
+  celeLabel: {
+    fontFamily: fonts.bodySemi, fontSize: 13, color: colors.muted,
+    letterSpacing: 1.5, textTransform: "uppercase", marginTop: -spacing.xs,
+  },
+  celeSub: { fontFamily: fonts.bodySemi, fontSize: 16, color: colors.brand, marginTop: spacing.md },
+  verifyBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.75)", justifyContent: "center", padding: spacing.lg },
+  verifyCard: {
+    backgroundColor: colors.elevated, borderRadius: radius.lg, borderWidth: 1,
+    borderColor: colors.border, padding: spacing.lg,
+  },
+  verifyTitle: { fontFamily: fonts.display, fontSize: 22, color: colors.onSurface, marginBottom: spacing.sm },
+  verifySubtitle: { fontFamily: fonts.body, fontSize: 14, color: colors.onSurfaceSecondary, lineHeight: 21, marginBottom: spacing.lg },
+  verifyInput: {
+    backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, borderWidth: 1,
+    borderColor: colors.border, paddingHorizontal: spacing.md, height: 54,
+    fontFamily: fonts.bodySemi, fontSize: 22, letterSpacing: 6, textAlign: "center", color: colors.onSurface,
+  },
+  verifyErr: { fontFamily: fonts.bodyMed, fontSize: 13, color: colors.error, marginTop: spacing.sm },
+  verifyMsg: { fontFamily: fonts.bodyMed, fontSize: 13, color: colors.brand, marginTop: spacing.sm },
+  verifyBtn: {
+    backgroundColor: colors.brand, borderRadius: radius.md, paddingVertical: spacing.md,
+    alignItems: "center", marginTop: spacing.md,
+  },
+  verifyBtnText: { fontFamily: fonts.bodySemi, fontSize: 15, color: colors.onBrand },
+  verifyResend: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.brand },
+  verifyClose: { fontFamily: fonts.bodyMed, fontSize: 14, color: colors.muted },
+  verifyDoneRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: spacing.md },
+  verifyDoneText: { flex: 1, fontFamily: fonts.bodyMed, fontSize: 15, color: colors.onSurface },
   header: {
     position: "absolute",
     top: 0,

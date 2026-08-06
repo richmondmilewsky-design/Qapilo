@@ -7,6 +7,7 @@ import {
   Platform,
   Pressable,
   Image,
+  Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -14,11 +15,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import * as AppleAuthentication from "expo-apple-authentication";
+import * as LocalAuthentication from "expo-local-authentication";
 import { useAuth } from "@/src/context/AuthContext";
 import { useI18n } from "@/src/i18n/I18nContext";
 import { LanguageButton } from "@/src/components/LanguageButton";
 import { PrimaryButton } from "@/src/components/ui";
 import { storage } from "@/src/utils/storage";
+import { getToken, setToken as setApiToken } from "@/src/api/client";
 import { colors, fonts, radius, spacing } from "@/src/theme/theme";
 
 function passwordScore(p: string): number {
@@ -31,7 +34,7 @@ function passwordScore(p: string): number {
 }
 
 export default function AuthScreen() {
-  const { login, signup, loginWithGoogle, loginWithApple } = useAuth();
+  const { login, signup, loginWithGoogle, loginWithApple, refresh } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t } = useI18n();
@@ -45,6 +48,7 @@ export default function AuthScreen() {
   const [appleAvailable, setAppleAvailable] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(true);
+  const [bioAvailable, setBioAvailable] = useState(false);
   const [error, setError] = useState("");
 
   const emailRef = useRef<TextInput>(null);
@@ -57,6 +61,66 @@ export default function AuthScreen() {
       .catch(() => setAppleAvailable(false));
   }, []);
 
+  useEffect(() => {
+    (async () => {
+      try {
+        const enabled = await storage.getItem("tq_bio_enabled", false);
+        if (!enabled) return;
+        const hasHw = await LocalAuthentication.hasHardwareAsync();
+        const enrolled = await LocalAuthentication.isEnrolledAsync();
+        const tok = await storage.secureGet("tq_bio_token", "");
+        setBioAvailable(!!hasHw && !!enrolled && !!tok);
+      } catch {}
+    })();
+  }, []);
+
+  const offerBiometricEnrollment = async () => {
+    try {
+      if (await storage.getItem("tq_bio_enabled", false)) return;
+      const hasHw = await LocalAuthentication.hasHardwareAsync();
+      const enrolled = await LocalAuthentication.isEnrolledAsync();
+      if (!hasHw || !enrolled) return;
+    } catch {
+      return;
+    }
+    await new Promise<void>((resolve) => {
+      Alert.alert(t("bio.enableTitle"), t("bio.enableMsg"), [
+        { text: t("bio.notNow"), style: "cancel", onPress: () => resolve() },
+        {
+          text: t("bio.enable"),
+          onPress: async () => {
+            try {
+              const res = await LocalAuthentication.authenticateAsync({ promptMessage: t("bio.prompt") });
+              if (res.success) {
+                const tok = await getToken();
+                if (tok) {
+                  await storage.secureSet("tq_bio_token", tok);
+                  await storage.setItem("tq_bio_enabled", true);
+                }
+              }
+            } catch {}
+            resolve();
+          },
+        },
+      ], { cancelable: true, onDismiss: () => resolve() });
+    });
+  };
+
+  const biometricLogin = async () => {
+    setError("");
+    try {
+      const res = await LocalAuthentication.authenticateAsync({ promptMessage: t("bio.prompt") });
+      if (!res.success) return;
+      const tok = await storage.secureGet("tq_bio_token", "");
+      if (!tok) return;
+      await setApiToken(tok);
+      await refresh();
+      router.replace("/");
+    } catch (e: any) {
+      setError(e.message || t("auth.failed"));
+    }
+  };
+
   const submit = async () => {
     setError("");
     setLoading(true);
@@ -67,6 +131,7 @@ export default function AuthScreen() {
           ? await signup(email.trim(), password, name.trim() || "Investor")
           : await login(email.trim(), password);
       await storage.setItem("qapilo_welcome", `${mode}::${u.name}`);
+      await offerBiometricEnrollment();
       router.replace("/");
     } catch (e: any) {
       setError(e.message || t("auth.failed"));
@@ -136,6 +201,17 @@ export default function AuthScreen() {
             <Text style={styles.h1} testID="auth-heading">
               {mode === "login" ? t("auth.welcomeBack") : t("auth.createAccount")}
             </Text>
+
+            {bioAvailable && mode === "login" && (
+              <Pressable
+                testID="biometric-login-button"
+                onPress={biometricLogin}
+                style={({ pressed }) => [styles.socialBtn, { marginBottom: spacing.md, opacity: pressed ? 0.85 : 1 }]}
+              >
+                <Ionicons name="finger-print" size={22} color={colors.brand} style={styles.socialIcon} />
+                <Text style={styles.socialText}>{t("auth.bio")}</Text>
+              </Pressable>
+            )}
 
             <Pressable
               testID="google-login-button"

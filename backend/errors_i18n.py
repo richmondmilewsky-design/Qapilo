@@ -63,6 +63,16 @@ ERRORS = {
         "de": "Dieser Link zum Zurücksetzen ist ungültig oder abgelaufen.",
         "es": "Este enlace de restablecimiento no es válido o ha caducado.",
     },
+    "verify_invalid": {
+        "en": "This code is invalid or has expired.",
+        "de": "Dieser Code ist ungültig oder abgelaufen.",
+        "es": "Este código no es válido o ha caducado.",
+    },
+    "verify_sent": {
+        "en": "We've sent a new confirmation code to your email.",
+        "de": "Wir haben einen neuen Bestätigungscode an deine E-Mail gesendet.",
+        "es": "Hemos enviado un nuevo código de confirmación a tu correo.",
+    },
     "weak_password": {
         "en": "Password must be at least 8 characters.",
         "de": "Das Passwort muss mindestens 8 Zeichen lang sein.",

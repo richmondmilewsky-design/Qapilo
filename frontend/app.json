@@ -38,7 +38,13 @@
         }
       ],
       "expo-localization",
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Sign in quickly with Face ID."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

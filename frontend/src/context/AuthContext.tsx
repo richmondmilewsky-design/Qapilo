@@ -23,6 +23,7 @@ export type User = {
   daily_xp: number;
   daily_goal: number;
   auth_provider: string;
+  email_verified: boolean;
   is_pro: boolean;
   pro_source: "trial" | "subscription" | "free";
   in_trial: boolean;
@@ -45,6 +46,8 @@ type AuthCtx = {
   loginWithApple: () => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
+  verifyEmail: (code: string, lang: string) => Promise<void>;
+  resendVerification: (lang: string) => Promise<void>;
   setUser: (u: User) => void;
 };
 
@@ -217,9 +220,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   };
 
+  const verifyEmail = async (code: string, lang: string) => {
+    const data = await apiRequest<{ user: User }>("/auth/verify-email", {
+      method: "POST",
+      body: { code, lang },
+    });
+    setUser(data.user);
+  };
+
+  const resendVerification = async (lang: string) => {
+    await apiRequest("/auth/resend-verification", { method: "POST", body: { lang } });
+  };
+
   return (
     <Ctx.Provider
-      value={{ user, loading, signup, login, loginWithGoogle, loginWithApple, logout, refresh, setUser }}
+      value={{ user, loading, signup, login, loginWithGoogle, loginWithApple, logout, refresh, verifyEmail, resendVerification, setUser }}
     >
       {children}
     </Ctx.Provider>

@@ -45,6 +45,7 @@ DAILY_GOAL_XP = 50
 
 # --- Transactional email / password reset config ---
 RESET_TOKEN_TTL_MIN = int(os.environ.get("RESET_TOKEN_TTL_MIN", "30"))
+VERIFY_CODE_TTL_MIN = int(os.environ.get("VERIFY_CODE_TTL_MIN", "30"))
 EMAIL_LOG_RETENTION_DAYS = int(os.environ.get("EMAIL_LOG_RETENTION_DAYS", "90"))
 SUPPORT_RETENTION_DAYS = int(os.environ.get("SUPPORT_RETENTION_DAYS", "180"))
 QAPILO_APP_URL = os.environ.get("QAPILO_APP_URL", "").strip().rstrip("/")
@@ -144,6 +145,15 @@ class ConsentsBody(BaseModel):
     consent_analytics: bool
     consent_product: bool
     consent_marketing: bool
+
+
+class VerifyEmailBody(BaseModel):
+    code: str
+    lang: Optional[str] = "en"
+
+
+class ResendVerificationBody(BaseModel):
+    lang: Optional[str] = "en"
 
 
 # ----------------------------- Helpers -----------------------------
@@ -253,6 +263,7 @@ def public_user(u: dict) -> dict:
         "daily_xp": u.get("daily_xp", 0) if u.get("daily_date") == today_str() else 0,
         "daily_goal": DAILY_GOAL_XP,
         "auth_provider": u.get("auth_provider", "password"),
+        "email_verified": u.get("email_verified", True),
         "accepted_terms": u.get("accepted_terms", False),
         "accepted_disclaimer": u.get("accepted_disclaimer", False),
         "consent_analytics": u.get("consent_analytics", False),
@@ -288,6 +299,23 @@ def _hash_token(raw: str) -> str:
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
+async def _issue_email_code(user_id: str, user_email: str, lang: str):
+    """Generate a 6-digit email-verification code, store only its hash with an
+    expiry, and send it via the transactional email service."""
+    code = f"{secrets.randbelow(1_000_000):06d}"
+    await db.email_verifications.delete_many({"user_id": user_id})
+    await db.email_verifications.insert_one({
+        "user_id": user_id,
+        "code_hash": _hash_token(code),
+        "created_at": datetime.now(timezone.utc),
+        "expires_at": datetime.now(timezone.utc) + timedelta(minutes=VERIFY_CODE_TTL_MIN),
+        "attempts": 0,
+    })
+    asyncio.create_task(email.send_and_log(
+        db, "email_verification", lang, user_email, user_id,
+        {"code": code, "ttl": VERIFY_CODE_TTL_MIN}))
+
+
 def _rate_limited(key: str, limit: int, window_sec: int) -> bool:
     """Return True if `key` has exceeded `limit` events within `window_sec`."""
     import time
@@ -305,6 +333,7 @@ async def ensure_indexes():
     await db.users.create_index("email", unique=True, sparse=True)
     await db.users.create_index("user_id", unique=True)
     await db.password_resets.create_index("expires_at", expireAfterSeconds=0)
+    await db.email_verifications.create_index("expires_at", expireAfterSeconds=0)
     await db.email_events.create_index(
         "created_at", expireAfterSeconds=EMAIL_LOG_RETENTION_DAYS * 86400)
     await db.support_requests.create_index(
@@ -366,11 +395,13 @@ async def signup(body: SignupBody):
         "trial_ends_at": (datetime.now(timezone.utc) + timedelta(days=TRIAL_DAYS)).isoformat(),
         "pro_active": False, "subscription_id": None, "subscription_status": None,
         "accepted_terms": False,
+        "email_verified": False,
     }
     await db.users.insert_one(user)
     asyncio.create_task(email.send_and_log(
         db, "trial_started", (body.lang or "en"), user["email"], user["user_id"],
         {"days": TRIAL_DAYS}))
+    await _issue_email_code(user["user_id"], user["email"], body.lang or "en")
     return {"token": make_token(user["user_id"]), "user": public_user(user)}
 
 
@@ -516,6 +547,48 @@ async def me(user: dict = Depends(get_current_user)):
 @api.post("/auth/logout")
 async def logout(user: dict = Depends(get_current_user)):
     return {"ok": True}
+
+
+@api.post("/auth/verify-email")
+async def verify_email(body: VerifyEmailBody, user: dict = Depends(get_current_user)):
+    """Confirm the user's email with the 6-digit code they received (non-blocking)."""
+    if user.get("email_verified", True):
+        fresh = await db.users.find_one({"user_id": user["user_id"]}, {"_id": 0})
+        return {"user": public_user(fresh)}
+    code = (body.code or "").strip()
+    rec = await db.email_verifications.find_one({"user_id": user["user_id"]})
+    if not rec:
+        raise HTTPException(status_code=400, detail=L("verify_invalid"))
+    exp = rec.get("expires_at")
+    if exp is not None and exp.tzinfo is None:
+        exp = exp.replace(tzinfo=timezone.utc)
+    if not exp or exp < datetime.now(timezone.utc):
+        await db.email_verifications.delete_many({"user_id": user["user_id"]})
+        raise HTTPException(status_code=400, detail=L("verify_invalid"))
+    if rec.get("attempts", 0) >= 6:
+        await db.email_verifications.delete_many({"user_id": user["user_id"]})
+        raise HTTPException(status_code=429, detail=L("rate_limited"))
+    if _hash_token(code) != rec.get("code_hash"):
+        await db.email_verifications.update_one({"_id": rec["_id"]}, {"$inc": {"attempts": 1}})
+        raise HTTPException(status_code=400, detail=L("verify_invalid"))
+    await db.users.update_one(
+        {"user_id": user["user_id"]},
+        {"$set": {"email_verified": True,
+                  "email_verified_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    await db.email_verifications.delete_many({"user_id": user["user_id"]})
+    fresh = await db.users.find_one({"user_id": user["user_id"]}, {"_id": 0})
+    return {"user": public_user(fresh)}
+
+
+@api.post("/auth/resend-verification")
+async def resend_verification(body: ResendVerificationBody, user: dict = Depends(get_current_user)):
+    if user.get("email_verified", True):
+        return {"ok": True}
+    if _rate_limited(f"verify:{user['user_id']}", 3, 900):
+        raise HTTPException(status_code=429, detail=L("rate_limited"))
+    await _issue_email_code(user["user_id"], user["email"], body.lang or "en")
+    return {"ok": True, "message": L("verify_sent")}
 
 
 @api.post("/auth/accept-terms")

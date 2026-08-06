@@ -56,6 +56,35 @@ async def _provider_send(to: str, subject: str, html: str, reply_to: str | None 
 # Button = (label, url) or None. Kept neutral, educational, no marketing.
 # ---------------------------------------------------------------------------
 _T = {
+    "email_verification": {
+        "en": {
+            "subject": "Confirm your Qapilo email",
+            "p": [
+                "Welcome to Qapilo! Please confirm your email address to secure your account.",
+                "Enter this 6-digit code in the app: {code}",
+                "This code expires in {ttl} minutes. If you didn't create a Qapilo account, you can ignore this email.",
+            ],
+            "btn": None,
+        },
+        "de": {
+            "subject": "Bestätige deine Qapilo-E-Mail",
+            "p": [
+                "Willkommen bei Qapilo! Bitte bestätige deine E-Mail-Adresse, um dein Konto abzusichern.",
+                "Gib diesen 6-stelligen Code in der App ein: {code}",
+                "Dieser Code läuft in {ttl} Minuten ab. Falls du kein Qapilo-Konto erstellt hast, kannst du diese E-Mail ignorieren.",
+            ],
+            "btn": None,
+        },
+        "es": {
+            "subject": "Confirma tu correo de Qapilo",
+            "p": [
+                "¡Bienvenido a Qapilo! Confirma tu dirección de correo para proteger tu cuenta.",
+                "Introduce este código de 6 dígitos en la app: {code}",
+                "Este código caduca en {ttl} minutos. Si no creaste una cuenta de Qapilo, puedes ignorar este correo.",
+            ],
+            "btn": None,
+        },
+    },
     "password_reset": {
         "en": {
             "subject": "Reset your Qapilo password",
