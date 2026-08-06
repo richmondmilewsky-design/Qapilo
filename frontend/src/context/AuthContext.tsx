@@ -24,6 +24,7 @@ export type User = {
   daily_goal: number;
   auth_provider: string;
   email_verified: boolean;
+  created_at?: string | null;
   is_pro: boolean;
   pro_source: "trial" | "subscription" | "free";
   in_trial: boolean;

@@ -251,6 +251,8 @@ BADGES = [
     {"id": "first_step", "name": "First Step", "desc": "Complete your first lesson", "icon": "flag"},
     {"id": "streak_3", "name": "On Fire", "desc": "Reach a 3-day streak", "icon": "flame"},
     {"id": "streak_7", "name": "Unstoppable", "desc": "Reach a 7-day streak", "icon": "flame"},
+    {"id": "streak_30", "name": "Iron Habit", "desc": "Reach a 30-day streak", "icon": "flame"},
+    {"id": "streak_100", "name": "Legendary Streak", "desc": "Reach a 100-day streak", "icon": "trophy"},
     {"id": "perfectionist", "name": "Perfectionist", "desc": "Ace a lesson with a perfect score", "icon": "star"},
     {"id": "half_way", "name": "Halfway There", "desc": "Complete 8 lessons", "icon": "medal"},
     {"id": "graduate", "name": "Market Graduate", "desc": "Complete all lessons", "icon": "trophy"},

@@ -1,0 +1,30 @@
+{
+  "summary": "Iteration 17 (streak milestone celebration + gentle 2nd verify reminder + created_at in public_user) fully validated. Backend: 12/12 pytest cases pass in /app/backend/tests/test_iteration_17_streaks.py — signup / login / /auth/me all include ISO 'created_at'; signup still email_verified=false; verify-email wrong code -> 400 (429 after >=6 attempts); resend-verification rate limited (3 per 15min bucket triggers 429 on 4th call); demo login (demo@tradequest.app / demo123) works and streak==7 in DB. GET /api/badges lists streak_7, streak_30 and streak_100. Awarding via POST /api/lessons/{id}/complete after setting user's streak to 7/30/100 in Mongo (and last_active=today so lesson endpoint doesn't reset streak) yields the expected new_badges + persisted user.badges. Frontend (mobile 390x844 web preview): logging in as demo (streak=7) with the milestone key cleared surfaces the streak-milestone overlay within ~600ms — trophy icon + '7 DAY STREAK' + 'Milestone reached!' + 'New badge unlocked'; AsyncStorage key tq_streak_milestone_7 gets set to 'true' and the overlay does NOT reappear on reload. Gentle reminder: fresh signup + Mongo backdate created_at to 5 days ago -> after login+/agreement, verify-reminder-modal (testID) appears with 'Email not confirmed yet' + 'Confirm now' (testID reminder-verify-now) + 'Later'; 'Later' stores an ISO date in localStorage tq_verify_reminded and modal does not re-appear on reload; clicking 'Confirm now' opens the existing verify-modal (6-digit code entry). Welcome toast + amber verify-email banner still function.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration_17_streaks.py",
+    "/app/test_reports/pytest/pytest_iteration_17.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "index.tsx line 132: milestone useEffect depends only on [user], not on locale — good; effect runs when user first arrives after login. Reasonable.",
+    "index.tsx line 167-171: reminder logic writes tq_verify_reminded BEFORE opening the modal, so if the user closes the tab before seeing it they won't get another reminder for 3 days. Consider writing the key only when Later/Confirm is chosen. Non-blocking.",
+    "server.py evaluate_badges (line 682) — thresholds hard-coded but symmetric (streak_3/7/30/100 + xp_500 + level_5). Fine for now; if list grows further, consider table-driven.",
+    "server.py public_user (line 267) — 'created_at' returned as-stored (ISO string for password/google/apple, datetime object for older seeded rows if any). Verified DB has ISO strings — but be aware /auth/me on very old accounts may return a datetime that FastAPI will still serialise. No action required unless mixed storage causes client parse issues (JS new Date() handles both ISO string and epoch ms)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration_17_streaks.py (new)"
+  ],
+  "success_rate": { "backend": "100% (12/12)", "frontend": "100%" },
+  "seed_data_creation": "Each pytest run creates ~2 TEST_streak_<uuid>@example.com / TEST_rl_<uuid>@example.com users. UI test also created 1 TEST_reminder_<uuid>@example.com user with created_at backdated 5 days for the reminder-modal check. All are harmless test rows; email_verifications documents auto-expire in 30 min via TTL index.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Streak milestones (7/30/100) and gentle 2nd verify reminder are stable. New badges 'streak_30' and 'streak_100' present in content.py BADGES and awarded by evaluate_badges. public_user emits ISO 'created_at' — the reminder feature depends on it (index.tsx computes ageDays from user.created_at, requires >=3 days). Frontend testIDs: streak-milestone (overlay), streak-celebration (daily), verify-reminder-modal, reminder-verify-now, verify-modal, verify-email-banner, verify-code-input, verify-submit, verify-resend. LocalStorage keys used by these flows: tq_streak_milestone_<n>, tq_streak_celebrated_<YYYY-MM-DD>, tq_verify_reminded (ISO date). When testing milestones on demo user (streak=7), clear tq_streak_milestone_7 first (and tq_streak_celebrated_<today> if you want to bypass the daily overlay). When testing badge awards via lesson complete, set both streak AND last_active=today in Mongo so the endpoint's streak recompute (line 736-745 in server.py) doesn't reset streak to 1 — this was the only test-side pitfall found.",
+  "rca_of_issue": "N/A — no product bugs found. One test-side pitfall documented: /api/lessons/{id}/complete recomputes streak (resets to 1 if last_active != today AND != yesterday). Test fixture now stamps last_active=today alongside the streak override so evaluate_badges sees the intended streak value."
+}

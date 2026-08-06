@@ -264,6 +264,7 @@ def public_user(u: dict) -> dict:
         "daily_goal": DAILY_GOAL_XP,
         "auth_provider": u.get("auth_provider", "password"),
         "email_verified": u.get("email_verified", True),
+        "created_at": u.get("created_at"),
         "accepted_terms": u.get("accepted_terms", False),
         "accepted_disclaimer": u.get("accepted_disclaimer", False),
         "consent_analytics": u.get("consent_analytics", False),
@@ -695,6 +696,10 @@ def evaluate_badges(u: dict) -> List[str]:
         award("streak_3")
     if u.get("streak", 0) >= 7:
         award("streak_7")
+    if u.get("streak", 0) >= 30:
+        award("streak_30")
+    if u.get("streak", 0) >= 100:
+        award("streak_100")
     if len(perfect) >= 1:
         award("perfectionist")
     if len(completed) >= max(8, len(LESSON_ORDER) // 2):

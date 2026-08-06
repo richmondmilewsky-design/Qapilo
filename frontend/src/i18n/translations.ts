@@ -139,6 +139,10 @@ const en: Dict = {
   "verify.resent": "A new code is on its way.",
   "verify.success": "Email confirmed — thank you!",
   "streak.label": "day streak", "streak.keepGoing": "Keep it up!",
+  "milestone.title": "Milestone reached!", "milestone.badge": "New badge unlocked",
+  "remind.title": "Email not confirmed yet",
+  "remind.body": "Confirm your email so you can recover your account if you ever forget your password.",
+  "remind.now": "Confirm now", "remind.later": "Later",
   "lang.title": "Choose language",
 };
 
@@ -273,6 +277,10 @@ const de: Dict = {
   "verify.resent": "Ein neuer Code ist unterwegs.",
   "verify.success": "E-Mail bestätigt — danke!",
   "streak.label": "Tage-Serie", "streak.keepGoing": "Weiter so!",
+  "milestone.title": "Meilenstein erreicht!", "milestone.badge": "Neues Abzeichen freigeschaltet",
+  "remind.title": "E-Mail noch nicht bestätigt",
+  "remind.body": "Bestätige deine E-Mail, damit du dein Konto wiederherstellen kannst, falls du dein Passwort vergisst.",
+  "remind.now": "Jetzt bestätigen", "remind.later": "Später",
   "lang.title": "Sprache wählen",
 };
 
@@ -407,6 +415,10 @@ const es: Dict = {
   "verify.resent": "Un nuevo código está en camino.",
   "verify.success": "¡Correo confirmado, gracias!",
   "streak.label": "racha de días", "streak.keepGoing": "¡Sigue así!",
+  "milestone.title": "¡Hito alcanzado!", "milestone.badge": "Nueva insignia desbloqueada",
+  "remind.title": "Correo aún sin confirmar",
+  "remind.body": "Confirma tu correo para poder recuperar tu cuenta si alguna vez olvidas la contraseña.",
+  "remind.now": "Confirmar ahora", "remind.later": "Más tarde",
   "lang.title": "Elegir idioma",
 };
 

@@ -49,8 +49,9 @@ export default function LearnScreen() {
   const [welcome, setWelcome] = useState<{ name: string; mode: string } | null>(null);
   const welcomeAnim = useRef(new Animated.Value(0)).current;
   const [justLoggedIn, setJustLoggedIn] = useState(false);
-  const [streakCele, setStreakCele] = useState(false);
-  const streakAnim = useRef(new Animated.Value(0)).current;
+  const [cele, setCele] = useState<{ kind: "daily" | "milestone"; n: number } | null>(null);
+  const celeAnim = useRef(new Animated.Value(0)).current;
+  const [reminderOpen, setReminderOpen] = useState(false);
   const [verifyOpen, setVerifyOpen] = useState(false);
   const [verifyCode, setVerifyCode] = useState("");
   const [verifyLoading, setVerifyLoading] = useState(false);
@@ -112,7 +113,25 @@ export default function LearnScreen() {
     });
   }, [welcome, welcomeAnim]);
 
-  // Celebrate the streak once on the first login of the day.
+  // Celebrate streak milestones (7/30/100) — highest new one, once each.
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      for (const m of [100, 30, 7]) {
+        if (user.streak >= m) {
+          const k = `tq_streak_milestone_${m}`;
+          const done = await storage.getItem(k, false);
+          if (!done) {
+            await storage.setItem(k, true);
+            setCele({ kind: "milestone", n: m });
+          }
+          break;
+        }
+      }
+    })();
+  }, [user]);
+
+  // Celebrate the streak once on the first login of the day (if no milestone took over).
   useEffect(() => {
     if (!justLoggedIn || !user) return;
     (async () => {
@@ -120,23 +139,38 @@ export default function LearnScreen() {
       const done = await storage.getItem(key, false);
       if (!done && user.streak >= 1) {
         await storage.setItem(key, true);
-        setStreakCele(true);
+        setCele((prev) => prev ?? { kind: "daily", n: user.streak });
       }
       setJustLoggedIn(false);
     })();
   }, [justLoggedIn, user, todayKey]);
 
   useEffect(() => {
-    if (!streakCele) return;
-    streakAnim.setValue(0);
-    Animated.spring(streakAnim, { toValue: 1, friction: 6, useNativeDriver: true }).start();
+    if (!cele) return;
+    celeAnim.setValue(0);
+    Animated.spring(celeAnim, { toValue: 1, friction: 6, useNativeDriver: true }).start();
     const timer = setTimeout(() => {
-      Animated.timing(streakAnim, { toValue: 0, duration: 250, useNativeDriver: true }).start(
-        ({ finished }) => { if (finished) setStreakCele(false); }
+      Animated.timing(celeAnim, { toValue: 0, duration: 250, useNativeDriver: true }).start(
+        ({ finished }) => { if (finished) setCele(null); }
       );
-    }, 2600);
+    }, cele.kind === "milestone" ? 3600 : 2600);
     return () => clearTimeout(timer);
-  }, [streakCele, streakAnim]);
+  }, [cele, celeAnim]);
+
+  // Gentle second reminder for unverified users after a few days.
+  useEffect(() => {
+    if (!user || user.email_verified) return;
+    (async () => {
+      const created = user.created_at ? new Date(user.created_at).getTime() : 0;
+      const ageDays = created ? (Date.now() - created) / 86400000 : 0;
+      if (ageDays < 3) return;
+      const last = await storage.getItem<string>("tq_verify_reminded", "");
+      const lastTime = last ? new Date(last).getTime() : 0;
+      if (Date.now() - lastTime < 3 * 86400000) return;
+      await storage.setItem("tq_verify_reminded", new Date().toISOString());
+      setReminderOpen(true);
+    })();
+  }, [user]);
 
   const submitVerify = async () => {
     setVerifyErr(""); setVerifyMsg("");
@@ -337,27 +371,59 @@ export default function LearnScreen() {
         </Animated.View>
       )}
 
-      {streakCele && user && (
-        <View style={styles.celeOverlay} testID="streak-celebration">
-          <Pressable style={styles.celeBackdrop} onPress={() => setStreakCele(false)} />
+      {cele && user && (
+        <View style={styles.celeOverlay} testID={cele.kind === "milestone" ? "streak-milestone" : "streak-celebration"}>
+          <Pressable style={styles.celeBackdrop} onPress={() => setCele(null)} />
           <Animated.View
             style={[
               styles.celeCard,
+              cele.kind === "milestone" && styles.celeCardMilestone,
               {
-                opacity: streakAnim,
+                opacity: celeAnim,
                 transform: [
-                  { scale: streakAnim.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] }) },
+                  { scale: celeAnim.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] }) },
                 ],
               },
             ]}
           >
-            <MaterialCommunityIcons name="fire" size={64} color={colors.amber} />
-            <Text style={styles.celeNum}>{user.streak}</Text>
+            <MaterialCommunityIcons
+              name={cele.kind === "milestone" ? "trophy" : "fire"}
+              size={64}
+              color={colors.amber}
+            />
+            <Text style={styles.celeNum}>{cele.n}</Text>
             <Text style={styles.celeLabel}>{t("streak.label")}</Text>
-            <Text style={styles.celeSub}>{t("streak.keepGoing")}</Text>
+            {cele.kind === "milestone" ? (
+              <>
+                <Text style={styles.celeMilestoneTitle}>{t("milestone.title")}</Text>
+                <Text style={styles.celeSub}>{t("milestone.badge")}</Text>
+              </>
+            ) : (
+              <Text style={styles.celeSub}>{t("streak.keepGoing")}</Text>
+            )}
           </Animated.View>
         </View>
       )}
+
+      <Modal visible={reminderOpen} transparent animationType="fade" onRequestClose={() => setReminderOpen(false)}>
+        <View style={styles.verifyBackdrop}>
+          <View style={styles.verifyCard} testID="verify-reminder-modal">
+            <Ionicons name="mail-unread-outline" size={40} color={colors.amber} style={{ marginBottom: spacing.sm }} />
+            <Text style={styles.verifyTitle}>{t("remind.title")}</Text>
+            <Text style={styles.verifySubtitle}>{t("remind.body")}</Text>
+            <Pressable
+              testID="reminder-verify-now"
+              onPress={() => { setReminderOpen(false); setVerifyErr(""); setVerifyMsg(""); setVerifyOpen(true); }}
+              style={styles.verifyBtn}
+            >
+              <Text style={styles.verifyBtnText}>{t("remind.now")}</Text>
+            </Pressable>
+            <Pressable onPress={() => setReminderOpen(false)} style={{ alignSelf: "center", marginTop: spacing.md }}>
+              <Text style={styles.verifyClose}>{t("remind.later")}</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
 
       <Modal visible={verifyOpen} transparent animationType="fade" onRequestClose={() => setVerifyOpen(false)}>
         <View style={styles.verifyBackdrop}>
@@ -540,6 +606,11 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5, textTransform: "uppercase", marginTop: -spacing.xs,
   },
   celeSub: { fontFamily: fonts.bodySemi, fontSize: 16, color: colors.brand, marginTop: spacing.md },
+  celeCardMilestone: { borderColor: colors.amber, borderWidth: 2 },
+  celeMilestoneTitle: {
+    fontFamily: fonts.display, fontSize: 20, color: colors.amber,
+    marginTop: spacing.md, textAlign: "center",
+  },
   verifyBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.75)", justifyContent: "center", padding: spacing.lg },
   verifyCard: {
     backgroundColor: colors.elevated, borderRadius: radius.lg, borderWidth: 1,
