@@ -10,27 +10,39 @@ scales with tier so harder lessons reward more points.
 
 TIER_META = {
     1: {"color": "#10B981", "xp": 10,
-        "difficulty": ("Absolute beginner with ZERO finance knowledge. Use warm, everyday "
-                       "analogies (piggy banks, pizza slices, owning part of a lemonade stand, "
-                       "a garden that grows). Very short simple sentences. Avoid ALL jargon; if a "
-                       "term is unavoidable, immediately define it in plain words. Questions must "
-                       "be easy, intuitive and encouraging.")},
-    2: {"color": "#F59E0B", "xp": 15,
-        "difficulty": ("Beginner who knows money basics. Introduce core stock-market terms clearly "
-                       "with simple concrete examples. Keep it friendly and light. Questions test "
-                       "basic understanding.")},
-    3: {"color": "#3B82F6", "xp": 25,
-        "difficulty": ("Intermediate learner. Assume the basics are known. Introduce charts, market "
-                       "mechanics and instruments with concrete examples and small numbers. "
-                       "Questions require applying concepts.")},
-    4: {"color": "#8B5CF6", "xp": 40,
-        "difficulty": ("Advanced learner. Cover fundamental analysis with real ratios, formulas and "
-                       "numeric examples. Be precise and concise. Questions involve calculation or "
-                       "nuanced judgement.")},
-    5: {"color": "#EC4899", "xp": 60,
-        "difficulty": ("Professional-level learner. Cover sophisticated portfolio, options, macro and "
-                       "behavioural concepts. Assume a strong foundation. Questions are challenging "
-                       "and nuanced, testing deep understanding and trade-offs.")},
+        "difficulty": ("Absolute beginner with ZERO finance knowledge. Money basics, its history and "
+                       "everyday value. Warm everyday analogies, very short simple sentences, no jargon. "
+                       "Easy, intuitive, encouraging questions.")},
+    2: {"color": "#F59E0B", "xp": 12,
+        "difficulty": ("Beginner. Personal finance: budgeting, saving, debt, interest, emergency funds and "
+                       "goals. Friendly and concrete with simple everyday examples. Questions test basic "
+                       "understanding.")},
+    3: {"color": "#3B82F6", "xp": 14,
+        "difficulty": ("Beginner+ learning to invest: return, risk, time horizon, plans and diversification. "
+                       "Simple concrete examples and small numbers. Questions apply the ideas.")},
+    4: {"color": "#8B5CF6", "xp": 16,
+        "difficulty": ("Intermediate. Stocks and companies: shares, exchanges, dividends and business basics. "
+                       "Clear concrete examples. Questions require applying concepts.")},
+    5: {"color": "#EC4899", "xp": 18,
+        "difficulty": ("Intermediate. Funds and asset classes: indexes, ETFs, bonds, real estate, commodities "
+                       "and crypto. Concrete examples with small numbers. Applied questions.")},
+    6: {"color": "#14B8A6", "xp": 20,
+        "difficulty": ("Upper-intermediate. Company analysis: statements, cash flow, ratios, moats and "
+                       "valuation. Use real ratios and numeric examples. Questions involve calculation or "
+                       "judgement.")},
+    7: {"color": "#6366F1", "xp": 22,
+        "difficulty": ("Advanced. Portfolio construction and investor psychology: allocation, rebalancing, "
+                       "volatility, correlation and behavioural biases. Precise and concise. Nuanced questions.")},
+    8: {"color": "#F97316", "xp": 24,
+        "difficulty": ("Advanced. Macroeconomics and markets: cycles, central banks, rates, currencies, bonds "
+                       "and inflation. Concrete and precise. Questions test cause-and-effect reasoning.")},
+    9: {"color": "#06B6D4", "xp": 27,
+        "difficulty": ("Professional-level. Factor investing, value/growth/quality/momentum, options and futures "
+                       "basics, risk metrics and optimization. Rigorous yet clear. Challenging questions.")},
+    10: {"color": "#A855F7", "xp": 30,
+        "difficulty": ("Expert but still educational. DCF, cost of capital, scenario and Monte-Carlo concepts, "
+                       "derivatives, institutional investing, PE/VC/hedge funds, wealth protection and strategy. "
+                       "Precise, well-explained, demanding questions.")},
 }
 
 ICONS = ["trending-up", "bank", "chart-line", "swap-vertical", "cash", "shield",
@@ -304,7 +316,8 @@ def build_units_spec():
     """Return a list of unit specs with ids, tier, color, xp and lesson ids/icons."""
     units = []
     lesson_counter = 1
-    for i, (tier, title, subtitle, lessons) in enumerate(BLUEPRINT, start=1):
+    for i, (_tier, title, subtitle, lessons) in enumerate(BLUEPRINT, start=1):
+        tier = (i - 1) // 20 + 1  # 10 tiers of 20 units each (u1-u200)
         meta = TIER_META[tier]
         lspecs = []
         for j, (ltitle, focus) in enumerate(lessons):
