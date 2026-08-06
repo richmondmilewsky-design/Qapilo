@@ -11,7 +11,6 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { storage } from "@/src/utils/storage";
@@ -21,7 +20,7 @@ import { colors, fonts, spacing } from "@/src/theme/theme";
 
 export const ONBOARDING_KEY = "qapilo_onboarding_done";
 
-type Slide = { key: string; icon: React.ReactNode; title: string; sub: string };
+type Slide = { key: string; emoji: string; title: string; sub: string };
 
 export default function Onboarding() {
   const router = useRouter();
@@ -35,19 +34,19 @@ export default function Onboarding() {
   const slides: Slide[] = [
     {
       key: "s1",
-      icon: <MaterialCommunityIcons name="chart-line-variant" size={64} color={colors.brand} />,
+      emoji: "📈",
       title: t("onboarding.s1.title"),
       sub: t("onboarding.s1.sub"),
     },
     {
       key: "s2",
-      icon: <MaterialCommunityIcons name="robot-happy" size={64} color={colors.brand} />,
+      emoji: "🎮",
       title: t("onboarding.s2.title"),
       sub: t("onboarding.s2.sub"),
     },
     {
       key: "s3",
-      icon: <Ionicons name="game-controller" size={60} color={colors.brand} />,
+      emoji: "🤖",
       title: t("onboarding.s3.title"),
       sub: t("onboarding.s3.sub"),
     },
@@ -109,13 +108,13 @@ export default function Onboarding() {
           return (
             <View style={[styles.slide, { width }]}>
               <Animated.View style={{ alignItems: "center", opacity, transform: [{ translateY }] }}>
-                <View style={styles.badge}>{item.icon}</View>
+                <View style={styles.badge}><Text style={styles.emoji}>{item.emoji}</Text></View>
                 <Text testID={`onboarding-title-${item.key}`} style={styles.title}>{item.title}</Text>
                 <Text style={styles.sub}>{item.sub}</Text>
                 {item.key === "s3" && (
-                  <View style={styles.proPill}>
-                    <Ionicons name="sparkles" size={14} color={colors.onBrand} />
-                    <Text style={styles.proPillText}>{t("onboarding.proBadge")}</Text>
+                  <View style={styles.ctaCard}>
+                    <Text style={styles.ctaTitle}>{t("onboarding.s3.ctaTitle")}</Text>
+                    <Text style={styles.ctaSub}>{t("onboarding.s3.ctaSub")}</Text>
                   </View>
                 )}
               </Animated.View>
@@ -158,17 +157,19 @@ const styles = StyleSheet.create({
   },
   title: { fontFamily: fonts.display, fontSize: 30, color: colors.onSurface, textAlign: "center", marginBottom: spacing.md },
   sub: { fontFamily: fonts.body, fontSize: 16, color: colors.muted, textAlign: "center", lineHeight: 24, maxWidth: 320 },
-  proPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-    backgroundColor: colors.brand,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: 999,
+  emoji: { fontSize: 64, lineHeight: 76, textAlign: "center" },
+  ctaCard: {
     marginTop: spacing.xl,
+    backgroundColor: colors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 16,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    maxWidth: 340,
   },
-  proPillText: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.onBrand },
+  ctaTitle: { fontFamily: fonts.bodySemi, fontSize: 17, color: colors.brand, textAlign: "center", marginBottom: spacing.xs },
+  ctaSub: { fontFamily: fonts.body, fontSize: 14, color: colors.muted, textAlign: "center", lineHeight: 21 },
   footer: { paddingHorizontal: spacing.xl, paddingTop: spacing.md, gap: spacing.lg },
   dots: { flexDirection: "row", justifyContent: "center", gap: spacing.sm },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.border },
