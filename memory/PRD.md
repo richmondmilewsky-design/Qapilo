@@ -90,3 +90,13 @@ See `/app/memory/test_credentials.md` (demo@tradequest.app / demo123).
 - Rewrote app/paywall.tsx: title/subtitle, Free vs Premium comparison, 4 offers (Individual yearly=default & "Most popular", Family, Lite w/ ads, Monthly), single-select, adaptive CTA (trial->"Start free trial", monthly->"Unlock Premium"), Cancel anytime, Restore purchases (real /subscription/status), Privacy/Terms links, scrollable. Purchases are clearly-marked PLACEHOLDERS (no StoreKit/Play billing yet).
 - Appearance wired to status: app/index.tsx gate redirects to /paywall when trial_status==='ended' && !is_pro (after terms+experience). Dismissible (close -> tabs) since billing is placeholder.
 - public_user fix: now returns experience_level (was missing). Added trial_status etc. to frontend User type. All strings EN/DE/ES.
+
+## Curriculum — Blueprint expansion (2026-06): 50 → 200 units
+- Rewrote backend/curriculum_blueprint.py only. Clean rebuild: 200 units (u1–u200), 3 lessons each (l1–l600), 10 tiers × 20 units.
+- Tiers: 1 Geld verstehen · 2 Persönliche Finanzen · 3 Investieren lernen · 4 Aktien verstehen · 5 ETFs & Anlageklassen · 6 Unternehmen analysieren · 7 Portfolio & Psychologie · 8 Märkte & Makro · 9 Professionelles Investieren · 10 Investment Mastery.
+- Reused existing old-50 content, moved to correct tiers (money→T1, personal finance→T2, investing basics→T3, stocks→T4, funds→T5, fundamental analysis→T6, portfolio/psychology→T7, professional→T9).
+- IDs are new authoritative version; old lesson IDs not preserved (no production progress to keep).
+- NOT changed: curriculum_data.json (still old content, cards/quizzes NOT regenerated), curriculum.py, generate_curriculum.py, API, frontend, DB, PRO_UNITS, progress logic.
+- TIER_META already had 10 tiers; build_units_spec assigns tier by position (i-1)//20+1.
+- Structural verify passed: 200 units, 600 lessons, 10 tiers×20, unit/lesson IDs unique & contiguous, all units 3 lessons, dependent files parse OK.
+- NEXT (deferred, on user request only): generate cards/quizzes/translations into curriculum_data.json for the new 200-unit structure.
