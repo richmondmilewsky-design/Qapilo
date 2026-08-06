@@ -78,3 +78,9 @@ See `/app/memory/test_credentials.md` (demo@tradequest.app / demo123).
 ## Features — Iteration 17 (2026-06): Verify reminder + Streak milestones
 - Gentle 2nd email-verification reminder: unverified users whose account is >3 days old see a one-time reminder modal on Learn (throttled to once/3 days via tq_verify_reminded). public_user now exposes created_at.
 - Streak milestones (7/30/100): special trophy celebration overlay ("Milestone reached! / New badge unlocked") shown once per milestone (tq_streak_milestone_<n>). New badges streak_30 & streak_100 added + awarded in evaluate_badges. Daily/milestone celebrations unified into one overlay. Backend 12/12 + frontend all pass (iteration_17).
+
+## Foundation — Iteration 18 (2026-06): Free usage phase (no payment)
+- Central access function: backend/server.py `compute_pro(u)` (~L233), spread into public_user → on every user object & /auth/me.
+- Free phase active until 30 days (FREE_TRIAL_DAYS) OR level 30 (FREE_LEVEL_LIMIT). Subscription (pro_active) = premium always.
+- Fields: reused trial_ends_at, pro_active, subscription_status, xp→level (xp_into_level), created_at; added stored trial_started_at (signup/google/apple) + trial_ends_at now = signup+30d. New derived/exposed: trial_status (active|ended|premium), trial_end_reason (time|level|null), current_level, free_level_limit.
+- PayPal TRIAL_DAYS(7) intentionally untouched (no payment change). Internal status only — full paywall is a later step.

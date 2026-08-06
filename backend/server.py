@@ -57,6 +57,9 @@ _rl_buckets: dict = {}
 EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "").strip()
 CLAUDE_MODEL = "claude-sonnet-4-6"
 TRIAL_DAYS = 7
+# Free usage phase (no payment yet): ends after 30 days OR when the user reaches level 30.
+FREE_TRIAL_DAYS = 30
+FREE_LEVEL_LIMIT = 30
 PRO_UNITS = {f"u{i}" for i in range(21, 51)}  # tiers 3-5 (advanced) gated behind Pro
 FREE_TUTOR_DAILY_LIMIT = 3
 PAYPAL_CLIENT_ID = os.environ.get("PAYPAL_CLIENT_ID", "").strip()
@@ -228,21 +231,51 @@ def _parse_dt(v):
 
 
 def compute_pro(u: dict) -> dict:
+    """Single source of truth for access state.
+
+    Free usage phase is active until EITHER 30 days elapse (trial_ends_at)
+    OR the user reaches level 30. A paid subscription (pro_active) always
+    grants premium access. Returns a clear internal status only — the full
+    paywall / enforcement UI is a separate step.
+    """
     now = datetime.now(timezone.utc)
     trial_end = _parse_dt(u.get("trial_ends_at"))
-    sub_active = u.get("pro_active", False)
-    in_trial = bool(trial_end and now < trial_end)
-    is_pro = sub_active or in_trial
-    trial_days_left = 0
-    if trial_end and now < trial_end:
-        trial_days_left = (trial_end - now).days + 1
-    source = "subscription" if sub_active else ("trial" if in_trial else "free")
+    trial_start = _parse_dt(u.get("trial_started_at")) or _parse_dt(u.get("created_at"))
+    sub_active = bool(u.get("pro_active", False))
+    level = xp_into_level(u.get("xp", 0))["level"]
+
+    time_active = bool(trial_end and now < trial_end)
+    level_active = level < FREE_LEVEL_LIMIT
+    trial_active = time_active and level_active
+    is_pro = sub_active or trial_active
+
+    # Why the free phase ended (drives the upcoming paywall messaging).
+    trial_end_reason = None
+    if not sub_active and not trial_active:
+        if trial_end and now >= trial_end:
+            trial_end_reason = "time"
+        elif not level_active:
+            trial_end_reason = "level"
+
+    if sub_active:
+        trial_status, source = "premium", "subscription"
+    elif trial_active:
+        trial_status, source = "active", "trial"
+    else:
+        trial_status, source = "ended", "free"
+
+    trial_days_left = (trial_end - now).days + 1 if time_active else 0
     return {
         "is_pro": is_pro,
         "pro_source": source,
-        "in_trial": in_trial,
+        "in_trial": trial_active,
+        "trial_status": trial_status,          # active | ended | premium
+        "trial_end_reason": trial_end_reason,   # None | "time" | "level"
         "trial_days_left": trial_days_left,
+        "trial_started_at": (trial_start.isoformat() if trial_start else u.get("created_at")),
         "trial_ends_at": u.get("trial_ends_at"),
+        "current_level": level,
+        "free_level_limit": FREE_LEVEL_LIMIT,
         "subscription_status": u.get("subscription_status"),
     }
 
@@ -397,7 +430,8 @@ async def signup(body: SignupBody):
         "daily_xp": 0, "daily_date": today_str(),
         "last_active": None,
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "trial_ends_at": (datetime.now(timezone.utc) + timedelta(days=TRIAL_DAYS)).isoformat(),
+        "trial_started_at": datetime.now(timezone.utc).isoformat(),
+        "trial_ends_at": (datetime.now(timezone.utc) + timedelta(days=FREE_TRIAL_DAYS)).isoformat(),
         "pro_active": False, "subscription_id": None, "subscription_status": None,
         "accepted_terms": False,
         "email_verified": False,
@@ -405,7 +439,7 @@ async def signup(body: SignupBody):
     await db.users.insert_one(user)
     asyncio.create_task(email.send_and_log(
         db, "trial_started", (body.lang or "en"), user["email"], user["user_id"],
-        {"days": TRIAL_DAYS}))
+        {"days": FREE_TRIAL_DAYS}))
     await _issue_email_code(user["user_id"], user["email"], body.lang or "en")
     return {"token": make_token(user["user_id"]), "user": public_user(user)}
 
@@ -447,7 +481,8 @@ async def google_auth(body: GoogleBody):
             "daily_xp": 0, "daily_date": today_str(),
             "last_active": None,
             "created_at": datetime.now(timezone.utc).isoformat(),
-            "trial_ends_at": (datetime.now(timezone.utc) + timedelta(days=TRIAL_DAYS)).isoformat(),
+            "trial_started_at": datetime.now(timezone.utc).isoformat(),
+            "trial_ends_at": (datetime.now(timezone.utc) + timedelta(days=FREE_TRIAL_DAYS)).isoformat(),
             "pro_active": False, "subscription_id": None, "subscription_status": None,
             "accepted_terms": False,
         }
@@ -535,7 +570,8 @@ async def apple_auth(body: AppleBody):
             "daily_xp": 0, "daily_date": today_str(),
             "last_active": None,
             "created_at": datetime.now(timezone.utc).isoformat(),
-            "trial_ends_at": (datetime.now(timezone.utc) + timedelta(days=TRIAL_DAYS)).isoformat(),
+            "trial_started_at": datetime.now(timezone.utc).isoformat(),
+            "trial_ends_at": (datetime.now(timezone.utc) + timedelta(days=FREE_TRIAL_DAYS)).isoformat(),
             "pro_active": False, "subscription_id": None, "subscription_status": None,
             "accepted_terms": False,
         }
