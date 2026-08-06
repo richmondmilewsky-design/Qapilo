@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import { useAuth } from "@/src/context/AuthContext";
 import { useI18n } from "@/src/i18n/I18nContext";
 import { LanguageButton } from "@/src/components/LanguageButton";
 import { PrimaryButton } from "@/src/components/ui";
+import { storage } from "@/src/utils/storage";
 import { colors, fonts, radius, spacing } from "@/src/theme/theme";
 
 export default function AuthScreen() {
@@ -33,7 +34,11 @@ export default function AuthScreen() {
   const [loading, setLoading] = useState(false);
   const [gLoading, setGLoading] = useState(false);
   const [appleAvailable, setAppleAvailable] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+
+  const emailRef = useRef<TextInput>(null);
+  const passwordRef = useRef<TextInput>(null);
 
   useEffect(() => {
     if (Platform.OS !== "ios") return;
@@ -46,8 +51,11 @@ export default function AuthScreen() {
     setError("");
     setLoading(true);
     try {
-      if (mode === "signup") await signup(email.trim(), password, name.trim() || "Investor");
-      else await login(email.trim(), password);
+      const u =
+        mode === "signup"
+          ? await signup(email.trim(), password, name.trim() || "Investor")
+          : await login(email.trim(), password);
+      await storage.setItem("qapilo_welcome", `${mode}::${u.name}`);
       router.replace("/");
     } catch (e: any) {
       setError(e.message || t("auth.failed"));
@@ -155,9 +163,12 @@ export default function AuthScreen() {
                 style={styles.input}
                 autoCapitalize="words"
                 returnKeyType="next"
+                blurOnSubmit={false}
+                onSubmitEditing={() => emailRef.current?.focus()}
               />
             )}
             <TextInput
+              ref={emailRef}
               testID="email-input"
               placeholder={t("auth.email")}
               placeholderTextColor={colors.muted}
@@ -168,18 +179,35 @@ export default function AuthScreen() {
               keyboardType="email-address"
               autoCorrect={false}
               returnKeyType="next"
+              blurOnSubmit={false}
+              onSubmitEditing={() => passwordRef.current?.focus()}
             />
-            <TextInput
-              testID="password-input"
-              placeholder={t("auth.password")}
-              placeholderTextColor={colors.muted}
-              value={password}
-              onChangeText={setPassword}
-              style={styles.input}
-              secureTextEntry
-              returnKeyType="go"
-              onSubmitEditing={submit}
-            />
+            <View style={styles.passwordWrap}>
+              <TextInput
+                ref={passwordRef}
+                testID="password-input"
+                placeholder={t("auth.password")}
+                placeholderTextColor={colors.muted}
+                value={password}
+                onChangeText={setPassword}
+                style={[styles.input, { marginBottom: 0, paddingRight: 52 }]}
+                secureTextEntry={!showPassword}
+                returnKeyType="go"
+                onSubmitEditing={submit}
+              />
+              <Pressable
+                testID="toggle-password"
+                onPress={() => setShowPassword((v) => !v)}
+                style={styles.eyeBtn}
+                hitSlop={8}
+              >
+                <Ionicons
+                  name={showPassword ? "eye-off-outline" : "eye-outline"}
+                  size={22}
+                  color={colors.muted}
+                />
+              </Pressable>
+            </View>
 
             {error ? (
               <Text testID="auth-error" style={styles.error}>
@@ -285,6 +313,16 @@ const styles = StyleSheet.create({
     fontFamily: fonts.body,
     fontSize: 15,
     marginBottom: spacing.md,
+  },
+  passwordWrap: { position: "relative", marginBottom: spacing.md },
+  eyeBtn: {
+    position: "absolute",
+    right: spacing.md,
+    top: 0,
+    bottom: 0,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: spacing.xs,
   },
   error: { color: colors.error, fontFamily: fonts.bodyMed, fontSize: 13, marginBottom: spacing.sm },
   toggle: { marginTop: spacing.xl, alignItems: "center" },

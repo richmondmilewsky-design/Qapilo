@@ -123,6 +123,7 @@ const en: Dict = {
   "consent.title": "Your consents", "consent.subtitle": "The choices below are voluntary and can be changed anytime.",
   "consent.reqNote": "Terms of Service and the financial disclaimer are required and always accepted.",
   "consent.save": "Save consents", "consent.saved": "Consents updated", "consent.error": "Could not update consents. Please try again.",
+  "welcome.back": "Welcome back", "welcome.new": "Welcome",
   "lang.title": "Choose language",
 };
 
@@ -241,6 +242,7 @@ const de: Dict = {
   "consent.title": "Deine Einwilligungen", "consent.subtitle": "Die folgenden Optionen sind freiwillig und jederzeit änderbar.",
   "consent.reqNote": "Nutzungsbedingungen und Finanzhinweis sind erforderlich und immer akzeptiert.",
   "consent.save": "Einwilligungen speichern", "consent.saved": "Einwilligungen aktualisiert", "consent.error": "Einwilligungen konnten nicht aktualisiert werden. Bitte versuche es erneut.",
+  "welcome.back": "Willkommen zurück", "welcome.new": "Willkommen",
   "lang.title": "Sprache wählen",
 };
 
@@ -363,3 +365,4 @@ const es: Dict = {
 };
 
 export const TRANSLATIONS: Record<Lang, Dict> = { en, de, es };
+

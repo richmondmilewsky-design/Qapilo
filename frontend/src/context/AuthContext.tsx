@@ -38,8 +38,8 @@ export type User = {
 type AuthCtx = {
   user: User | null;
   loading: boolean;
-  signup: (email: string, password: string, name: string) => Promise<void>;
-  login: (email: string, password: string) => Promise<void>;
+  signup: (email: string, password: string, name: string) => Promise<User>;
+  login: (email: string, password: string) => Promise<User>;
   loginWithGoogle: () => Promise<void>;
   loginWithApple: () => Promise<void>;
   logout: () => Promise<void>;
@@ -130,6 +130,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
     await setToken(data.token);
     setUser(data.user);
+    return data.user;
   };
 
   const login = async (email: string, password: string) => {
@@ -140,6 +141,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
     await setToken(data.token);
     setUser(data.user);
+    return data.user;
   };
 
   const exchangeSession = async (sessionId: string) => {

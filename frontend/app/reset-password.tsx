@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { View, Text, StyleSheet, TextInput, Pressable } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -19,6 +19,8 @@ export default function ResetPassword() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const passwordRef = useRef<TextInput>(null);
 
   const submit = async () => {
     setError("");
@@ -75,18 +77,36 @@ export default function ResetPassword() {
               style={styles.input}
               autoCapitalize="none"
               autoCorrect={false}
+              returnKeyType="next"
+              blurOnSubmit={false}
+              onSubmitEditing={() => passwordRef.current?.focus()}
             />
-            <TextInput
-              testID="reset-password"
-              placeholder={t("reset.newPassword")}
-              placeholderTextColor={colors.muted}
-              value={password}
-              onChangeText={setPassword}
-              style={[styles.input, { marginTop: spacing.md }]}
-              secureTextEntry
-              returnKeyType="go"
-              onSubmitEditing={submit}
-            />
+            <View style={styles.passwordWrap}>
+              <TextInput
+                ref={passwordRef}
+                testID="reset-password"
+                placeholder={t("reset.newPassword")}
+                placeholderTextColor={colors.muted}
+                value={password}
+                onChangeText={setPassword}
+                style={[styles.input, { paddingRight: 52 }]}
+                secureTextEntry={!showPassword}
+                returnKeyType="go"
+                onSubmitEditing={submit}
+              />
+              <Pressable
+                testID="reset-toggle-password"
+                onPress={() => setShowPassword((v) => !v)}
+                style={styles.eyeBtn}
+                hitSlop={8}
+              >
+                <Ionicons
+                  name={showPassword ? "eye-off-outline" : "eye-outline"}
+                  size={22}
+                  color={colors.muted}
+                />
+              </Pressable>
+            </View>
             {error ? <Text testID="reset-error" style={styles.error}>{error}</Text> : null}
             <PrimaryButton
               testID="reset-submit"
@@ -121,6 +141,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, borderWidth: 1,
     borderColor: colors.border, paddingHorizontal: spacing.md, height: 52,
     fontFamily: fonts.body, fontSize: 16, color: colors.onSurface,
+  },
+  passwordWrap: { position: "relative", marginTop: spacing.md },
+  eyeBtn: {
+    position: "absolute", right: spacing.md, top: 0, bottom: 0,
+    justifyContent: "center", alignItems: "center", paddingHorizontal: spacing.xs,
   },
   error: { fontFamily: fonts.bodyMed, fontSize: 13, color: colors.error, marginTop: spacing.sm },
   doneBox: {

@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useEffect } from "react";
+import React, { useCallback, useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   ScrollView,
   Pressable,
   RefreshControl,
+  Animated,
 } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -43,6 +44,8 @@ export default function LearnScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [nudgeDismissed, setNudgeDismissed] = useState(false);
+  const [welcome, setWelcome] = useState<{ name: string; mode: string } | null>(null);
+  const welcomeAnim = useRef(new Animated.Value(0)).current;
 
   const todayKey = new Date().toISOString().slice(0, 10);
 
@@ -58,6 +61,12 @@ export default function LearnScreen() {
       (async () => {
         const dismissed = await storage.getItem(`tq_trial_nudge_${todayKey}`, false);
         setNudgeDismissed(!!dismissed);
+        const w = await storage.getItem<string>("qapilo_welcome", "");
+        if (w) {
+          await storage.removeItem("qapilo_welcome");
+          const [mode, ...rest] = w.split("::");
+          setWelcome({ mode, name: rest.join("::") });
+        }
         await Promise.all([load(), refresh()]);
         setLoading(false);
       })();
@@ -78,6 +87,18 @@ export default function LearnScreen() {
   useEffect(() => {
     load();
   }, [locale, load]);
+
+  useEffect(() => {
+    if (!welcome) return;
+    welcomeAnim.setValue(0);
+    Animated.sequence([
+      Animated.timing(welcomeAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
+      Animated.delay(2400),
+      Animated.timing(welcomeAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
+    ]).start(({ finished }) => {
+      if (finished) setWelcome(null);
+    });
+  }, [welcome, welcomeAnim]);
 
   if (loading || !user) return <Loading testID="learn-loading" />;
 
@@ -211,6 +232,35 @@ export default function LearnScreen() {
           </View>
         ))}
       </ScrollView>
+
+      {welcome && (
+        <Animated.View
+          pointerEvents="none"
+          testID="welcome-toast"
+          style={[
+            styles.welcomeWrap,
+            {
+              top: insets.top + 112,
+              opacity: welcomeAnim,
+              transform: [
+                {
+                  translateY: welcomeAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [-12, 0],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          <View style={styles.welcomeToast}>
+            <MaterialCommunityIcons name="hand-wave" size={18} color={colors.onBrand} />
+            <Text style={styles.welcomeText} numberOfLines={1}>
+              {(welcome.mode === "signup" ? t("welcome.new") : t("welcome.back"))}, {welcome.name}!
+            </Text>
+          </View>
+        </Animated.View>
+      )}
     </View>
   );
 }
@@ -292,6 +342,29 @@ function Node({
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
+  welcomeWrap: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    zIndex: 20,
+  },
+  welcomeToast: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    maxWidth: "90%",
+    backgroundColor: colors.brand,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
+    shadowColor: "#000",
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
+  },
+  welcomeText: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.onBrand },
   header: {
     position: "absolute",
     top: 0,
