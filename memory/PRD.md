@@ -84,3 +84,9 @@ See `/app/memory/test_credentials.md` (demo@tradequest.app / demo123).
 - Free phase active until 30 days (FREE_TRIAL_DAYS) OR level 30 (FREE_LEVEL_LIMIT). Subscription (pro_active) = premium always.
 - Fields: reused trial_ends_at, pro_active, subscription_status, xp→level (xp_into_level), created_at; added stored trial_started_at (signup/google/apple) + trial_ends_at now = signup+30d. New derived/exposed: trial_status (active|ended|premium), trial_end_reason (time|level|null), current_level, free_level_limit.
 - PayPal TRIAL_DAYS(7) intentionally untouched (no payment change). Internal status only — full paywall is a later step.
+
+## Feature — Iteration 19 (2026-06): Premium paywall (UI + status wiring, no billing)
+- New central product config: frontend/src/constants/plans.ts (PLANS with prices/trials/features — single source, no hardcoded prices in UI).
+- Rewrote app/paywall.tsx: title/subtitle, Free vs Premium comparison, 4 offers (Individual yearly=default & "Most popular", Family, Lite w/ ads, Monthly), single-select, adaptive CTA (trial->"Start free trial", monthly->"Unlock Premium"), Cancel anytime, Restore purchases (real /subscription/status), Privacy/Terms links, scrollable. Purchases are clearly-marked PLACEHOLDERS (no StoreKit/Play billing yet).
+- Appearance wired to status: app/index.tsx gate redirects to /paywall when trial_status==='ended' && !is_pro (after terms+experience). Dismissible (close -> tabs) since billing is placeholder.
+- public_user fix: now returns experience_level (was missing). Added trial_status etc. to frontend User type. All strings EN/DE/ES.

@@ -304,6 +304,7 @@ def public_user(u: dict) -> dict:
         "created_at": u.get("created_at"),
         "accepted_terms": u.get("accepted_terms", False),
         "accepted_disclaimer": u.get("accepted_disclaimer", False),
+        "experience_level": u.get("experience_level"),
         "consent_analytics": u.get("consent_analytics", False),
         "consent_product": u.get("consent_product", False),
         "consent_marketing": u.get("consent_marketing", False),

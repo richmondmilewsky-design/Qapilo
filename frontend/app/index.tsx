@@ -16,6 +16,7 @@ export default function Index() {
     (async () => {
       if (user && !user.accepted_terms) return router.replace("/agreement");
       if (user && !user.experience_level) return router.replace("/experience");
+      if (user && !user.is_pro && user.trial_status === "ended") return router.replace("/paywall");
       if (user) return router.replace("/(tabs)");
       const onboarded = await storage.getItem<boolean>(ONBOARDING_KEY, false);
       router.replace(onboarded ? "/auth" : "/onboarding");

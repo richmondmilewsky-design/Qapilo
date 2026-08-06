@@ -29,6 +29,10 @@ export type User = {
   is_pro: boolean;
   pro_source: "trial" | "subscription" | "free";
   in_trial: boolean;
+  trial_status?: "active" | "ended" | "premium";
+  trial_end_reason?: "time" | "level" | null;
+  current_level?: number;
+  free_level_limit?: number;
   trial_days_left: number;
   trial_ends_at: string | null;
   subscription_status: string | null;
