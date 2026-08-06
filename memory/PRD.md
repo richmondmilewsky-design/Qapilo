@@ -74,3 +74,7 @@ See `/app/memory/test_credentials.md` (demo@tradequest.app / demo123).
 - Biometric quick sign-in (expo-local-authentication, device-only): opt-in prompt after first password login, then Face ID/Touch ID button on auth screen. Face ID permission added to app.json.
 - Streak celebration overlay on first login of day (streak>=1), once/day.
 - Non-blocking email verification: 6-digit code emailed on password signup; amber banner + code-entry modal on Learn; endpoints /auth/verify-email + /auth/resend-verification; public_user + /auth/me expose email_verified. All EN/DE/ES.
+
+## Features — Iteration 17 (2026-06): Verify reminder + Streak milestones
+- Gentle 2nd email-verification reminder: unverified users whose account is >3 days old see a one-time reminder modal on Learn (throttled to once/3 days via tq_verify_reminded). public_user now exposes created_at.
+- Streak milestones (7/30/100): special trophy celebration overlay ("Milestone reached! / New badge unlocked") shown once per milestone (tq_streak_milestone_<n>). New badges streak_30 & streak_100 added + awarded in evaluate_badges. Daily/milestone celebrations unified into one overlay. Backend 12/12 + frontend all pass (iteration_17).
