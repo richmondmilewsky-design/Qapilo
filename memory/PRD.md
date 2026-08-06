@@ -57,3 +57,8 @@ See `/app/memory/test_credentials.md` (demo@tradequest.app / demo123).
 ## Fix — Iteration 13 (2026-06): Keyboard overlap on form screens
 - Wrapped root `_layout.tsx` with `KeyboardProvider` (react-native-keyboard-controller@1.18.5).
 - Replaced RN `KeyboardAvoidingView`+`ScrollView` with `KeyboardAwareScrollView` (bottomOffset=24) on auth, forgot-password, reset-password, support screens so focused inputs stay above the keyboard on small devices (iPhone 12 / Android). Logic, design, texts unchanged. Web-preview E2E passed (13/13); native on-device validation still recommended.
+
+## Feature — Iteration 14 (2026-06): Auth UX polish
+- Password fields (auth + reset-password) now have an eye toggle to show/hide text.
+- Keyboard "next" chaining: Enter jumps Name→Email→Password (auth) and Code→Password (reset); Enter on password submits.
+- Friendly welcome toast on Learn screen after email/password login/signup ("Welcome back/Welcome, {name}!"), one-shot via AsyncStorage key `qapilo_welcome`, EN/DE/ES. AuthContext login/signup now return the User. Frontend E2E 8/8 passed (iteration_14).
