@@ -62,3 +62,7 @@ See `/app/memory/test_credentials.md` (demo@tradequest.app / demo123).
 - Password fields (auth + reset-password) now have an eye toggle to show/hide text.
 - Keyboard "next" chaining: Enter jumps Name→Email→Password (auth) and Code→Password (reset); Enter on password submits.
 - Friendly welcome toast on Learn screen after email/password login/signup ("Welcome back/Welcome, {name}!"), one-shot via AsyncStorage key `qapilo_welcome`, EN/DE/ES. AuthContext login/signup now return the User. Frontend E2E 8/8 passed (iteration_14).
+
+## Feature — Iteration 15 (2026-06): Password strength + Stay signed in
+- Signup: live password-strength meter (3 bars + Weak/Medium/Strong), score = length>=8 + mixed case + digit + symbol. Hidden in login mode / when empty.
+- Auth: "Stay signed in" toggle (default ON). Writes AsyncStorage `tq_remember`; when OFF, AuthContext drops the persisted SecureStore token on next cold app launch (device-only behavior). Localized EN/DE/ES. Frontend E2E passed (iteration_15).
