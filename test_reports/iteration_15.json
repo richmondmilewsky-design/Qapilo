@@ -1,0 +1,51 @@
+{
+  "summary": "Frontend-only test of the two new auth enhancements on /auth (mobile viewport 390x844). Password strength meter (SIGNUP-only) and 'Stay signed in' remember toggle both work end-to-end. All regression flows (password eye toggle, welcome toast on Learn, demo login → root/Learn tab) pass. One spec/implementation mismatch found: two of the 'Medium' example passwords in the request ('Abcdefgh', 'abc12345') actually render as 'Weak' because the passwordScore() helper only awards 1 point per category, so they score 2 → weak (medium requires score===3). Every other listed example matches the spec exactly.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": ["/app/test_reports/iteration_15.json"],
+  "action_items": [
+    "Review passwordScore() thresholds in /app/frontend/app/auth.tsx (lines 24-31, 227). Review request lists 'Abcdefgh' and 'abc12345' as MEDIUM examples, but they currently render as WEAK (each scores 2 — length>=8 + one other category — while medium requires score===3). Decide whether to (a) relax the medium threshold to score>=2 so those cases show 2 amber bars + 'Medium', or (b) accept the stricter algorithm and update the reviewer/user-facing examples so 'Medium' really needs three categories (e.g. 'Abcdefg1' or 'abcd!123', both of which currently do show Medium correctly). This is the only deviation from the requested behaviour."
+  ],
+  "critical_code_review_comments": [
+    "auth.tsx (line 64,82,95): tq_remember is written before the auth network call — good, but if the login itself fails the flag is still persisted with the latest toggle state. Low-impact but worth noting; consider writing tq_remember only inside the success branch, or accept the current behaviour as intentional (flag purely tracks the user's toggle preference, not auth success)."
+  ],
+  "updated_files": [],
+  "success_rate": { "backend": "n/a", "frontend": "95%" },
+  "seed_data_creation": "None. Used existing demo@tradequest.app / demo123 account which already existed in DB.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Auth screen testIDs verified working on web preview: auth-heading, toggle-auth-mode, email-input, password-input, toggle-password, password-strength (signup+pw>0 only), remember-toggle, auth-submit-button, google-login-button, forgot-password-link, auth-disclaimer-link. Web storage: AsyncStorage on web falls through to localStorage under key 'tq_remember' (JSON-serialised: 'true' / 'false'). Onboarding gate appears first on cold load — click [data-testid=\"onboarding-skip\"] to reach /auth.",
+  "rca_of_issue": "Password strength label mismatch RCA: passwordScore(p) in /app/frontend/app/auth.tsx L24-31 awards +1 for each of {length>=8, mixed case, has digit, has symbol}. Bucketing at L227: score<=2 → weak, score===3 → medium, score===4 → strong. 'Abcdefgh' satisfies length + mixed case only (score 2 → weak). 'abc12345' satisfies length + digit only (score 2 → weak). Both examples in the review request expected Medium, but only three-category passwords currently reach that bucket. Everything else — hidden in login, hidden with empty pw, 1 red bar+Weak for 'abc', 3 green bars+Strong for 'Abc123!xyz', plus Medium correctly triggered for 'Abcdefg1' and 'abcd!123' — matches spec exactly.",
+  "detailed_test_results": {
+    "password_strength_meter": {
+      "hidden_in_login_mode": "PASS — [data-testid=password-strength] absent even with text in password field while heading == 'Welcome back'",
+      "hidden_in_signup_when_empty": "PASS — [data-testid=password-strength] absent after switching to signup with empty password",
+      "abc__expected_Weak": "PASS — label='Weak', 1 red bar (rgb(239,68,68))",
+      "Abcdefgh__expected_Medium": "FAIL vs spec — label='Weak', 1 red bar. Score=2 per algorithm.",
+      "abc12345__expected_Medium": "FAIL vs spec — label='Weak', 1 red bar. Score=2 per algorithm.",
+      "Abcdefg1__medium_sanity": "PASS — label='Medium', 2 amber bars (rgb(231,154,46))",
+      "abcd!123__medium_sanity": "PASS — label='Medium', 2 amber bars",
+      "Abc123!xyz__expected_Strong": "PASS — label='Strong', 3 green bars (rgb(34,217,154))"
+    },
+    "remember_toggle": {
+      "visible_on_auth_screen": "PASS",
+      "default_checked": "PASS (visual — green filled box with checkmark)",
+      "tap_toggles_off": "PASS (empty box after 1 tap)",
+      "tap_toggles_back_on": "PASS (filled with checkmark after 2nd tap)",
+      "tq_remember_written_true_on_login": "PASS — localStorage.tq_remember === 'true' after successful login with toggle ON",
+      "tq_remember_written_false_on_login": "PASS — localStorage.tq_remember === 'false' after login with toggle tapped OFF"
+    },
+    "regression": {
+      "demo_login_lands_on_learn": "PASS — post-login URL '/' shows Learn tab (Endless Practice card + LEVEL 1 lessons visible; Learn/Explore/AI Tutor/Leaderboard/Profile tab bar present)",
+      "welcome_toast_on_learn": "PASS — 'Welcome back, Demo Trader!' toast rendered on Learn tab after login",
+      "password_eye_toggle": "PASS — password-input type transitions password → (secureTextEntry off) → password over two taps of toggle-password",
+      "field_chaining_email_to_password": "Not exercised via Enter key in this run; wiring inspected in auth.tsx (onSubmitEditing on email-input focuses passwordRef). No blocking issue observed."
+    },
+    "i18n_coverage": "Verified translations.ts contains auth.remember, auth.pwWeak/Medium/Strong strings for EN/DE/ES. Runtime language switch not exercised in this run."
+  }
+}

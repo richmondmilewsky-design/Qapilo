@@ -124,6 +124,8 @@ const en: Dict = {
   "consent.reqNote": "Terms of Service and the financial disclaimer are required and always accepted.",
   "consent.save": "Save consents", "consent.saved": "Consents updated", "consent.error": "Could not update consents. Please try again.",
   "welcome.back": "Welcome back", "welcome.new": "Welcome",
+  "auth.remember": "Stay signed in",
+  "auth.pwWeak": "Weak", "auth.pwMedium": "Medium", "auth.pwStrong": "Strong",
   "lang.title": "Choose language",
 };
 
@@ -243,6 +245,8 @@ const de: Dict = {
   "consent.reqNote": "Nutzungsbedingungen und Finanzhinweis sind erforderlich und immer akzeptiert.",
   "consent.save": "Einwilligungen speichern", "consent.saved": "Einwilligungen aktualisiert", "consent.error": "Einwilligungen konnten nicht aktualisiert werden. Bitte versuche es erneut.",
   "welcome.back": "Willkommen zurück", "welcome.new": "Willkommen",
+  "auth.remember": "Angemeldet bleiben",
+  "auth.pwWeak": "Schwach", "auth.pwMedium": "Mittel", "auth.pwStrong": "Stark",
   "lang.title": "Sprache wählen",
 };
 
@@ -361,6 +365,9 @@ const es: Dict = {
   "consent.title": "Tus consentimientos", "consent.subtitle": "Las opciones siguientes son voluntarias y puedes cambiarlas cuando quieras.",
   "consent.reqNote": "Los Términos del Servicio y el aviso financiero son obligatorios y siempre aceptados.",
   "consent.save": "Guardar consentimientos", "consent.saved": "Consentimientos actualizados", "consent.error": "No se pudieron actualizar los consentimientos. Inténtalo de nuevo.",
+  "welcome.back": "Bienvenido de nuevo", "welcome.new": "Bienvenido",
+  "auth.remember": "Mantener sesión iniciada",
+  "auth.pwWeak": "Débil", "auth.pwMedium": "Media", "auth.pwStrong": "Fuerte",
   "lang.title": "Elegir idioma",
 };
 

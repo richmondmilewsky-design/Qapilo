@@ -21,6 +21,15 @@ import { PrimaryButton } from "@/src/components/ui";
 import { storage } from "@/src/utils/storage";
 import { colors, fonts, radius, spacing } from "@/src/theme/theme";
 
+function passwordScore(p: string): number {
+  let s = 0;
+  if (p.length >= 8) s++;
+  if (/[a-z]/.test(p) && /[A-Z]/.test(p)) s++;
+  if (/\d/.test(p)) s++;
+  if (/[^A-Za-z0-9]/.test(p)) s++;
+  return s;
+}
+
 export default function AuthScreen() {
   const { login, signup, loginWithGoogle, loginWithApple } = useAuth();
   const router = useRouter();
@@ -35,6 +44,7 @@ export default function AuthScreen() {
   const [gLoading, setGLoading] = useState(false);
   const [appleAvailable, setAppleAvailable] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [remember, setRemember] = useState(true);
   const [error, setError] = useState("");
 
   const emailRef = useRef<TextInput>(null);
@@ -51,6 +61,7 @@ export default function AuthScreen() {
     setError("");
     setLoading(true);
     try {
+      await storage.setItem("tq_remember", remember);
       const u =
         mode === "signup"
           ? await signup(email.trim(), password, name.trim() || "Investor")
@@ -68,6 +79,7 @@ export default function AuthScreen() {
     setError("");
     setGLoading(true);
     try {
+      await storage.setItem("tq_remember", remember);
       await loginWithGoogle();
       router.replace("/");
     } catch (e: any) {
@@ -80,6 +92,7 @@ export default function AuthScreen() {
   const apple = async () => {
     setError("");
     try {
+      await storage.setItem("tq_remember", remember);
       await loginWithApple();
       router.replace("/");
     } catch (e: any) {
@@ -209,11 +222,49 @@ export default function AuthScreen() {
               </Pressable>
             </View>
 
+            {mode === "signup" && password.length > 0 && (() => {
+              const score = passwordScore(password);
+              const level = score <= 2 ? "weak" : score === 3 ? "medium" : "strong";
+              const barColor =
+                level === "weak" ? colors.error : level === "medium" ? colors.amber : colors.brand;
+              const filled = level === "weak" ? 1 : level === "medium" ? 2 : 3;
+              const label =
+                level === "weak" ? t("auth.pwWeak") : level === "medium" ? t("auth.pwMedium") : t("auth.pwStrong");
+              return (
+                <View style={styles.strengthWrap} testID="password-strength">
+                  <View style={styles.strengthBars}>
+                    {[0, 1, 2].map((i) => (
+                      <View
+                        key={i}
+                        style={[
+                          styles.strengthSeg,
+                          { backgroundColor: i < filled ? barColor : colors.surfaceTertiary },
+                        ]}
+                      />
+                    ))}
+                  </View>
+                  <Text style={[styles.strengthLabel, { color: barColor }]}>{label}</Text>
+                </View>
+              );
+            })()}
+
             {error ? (
               <Text testID="auth-error" style={styles.error}>
                 {error}
               </Text>
             ) : null}
+
+            <Pressable
+              testID="remember-toggle"
+              onPress={() => setRemember((v) => !v)}
+              style={styles.rememberRow}
+              hitSlop={6}
+            >
+              <View style={[styles.checkbox, remember && styles.checkboxChecked]}>
+                {remember && <Ionicons name="checkmark" size={14} color={colors.onBrand} />}
+              </View>
+              <Text style={styles.rememberText}>{t("auth.remember")}</Text>
+            </Pressable>
 
             <PrimaryButton
               testID="auth-submit-button"
@@ -324,6 +375,35 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: spacing.xs,
   },
+  strengthWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    marginTop: -spacing.xs,
+    marginBottom: spacing.md,
+  },
+  strengthBars: { flexDirection: "row", gap: 6, flex: 1 },
+  strengthSeg: { flex: 1, height: 5, borderRadius: radius.pill },
+  strengthLabel: { fontFamily: fonts.bodySemi, fontSize: 12, minWidth: 56, textAlign: "right" },
+  rememberRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+    alignSelf: "flex-start",
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: radius.sm,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceSecondary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checkboxChecked: { backgroundColor: colors.brand, borderColor: colors.brand },
+  rememberText: { fontFamily: fonts.bodyMed, fontSize: 14, color: colors.onSurfaceSecondary },
   error: { color: colors.error, fontFamily: fonts.bodyMed, fontSize: 13, marginBottom: spacing.sm },
   toggle: { marginTop: spacing.xl, alignItems: "center" },
   toggleText: { fontFamily: fonts.body, color: colors.muted, fontSize: 14 },

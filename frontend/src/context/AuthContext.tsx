@@ -4,6 +4,7 @@ import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { apiRequest, setToken } from "@/src/api/client";
+import { storage } from "@/src/utils/storage";
 
 export type User = {
   user_id: string;
@@ -113,6 +114,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
       }
       // 3) Otherwise resume an existing session.
+      const remember = await storage.getItem("tq_remember", true);
+      if (!remember) {
+        // "Stay signed in" was off → drop the persisted session on a fresh app launch.
+        await setToken(null);
+        setUser(null);
+        setLoading(false);
+        return;
+      }
       await refresh();
       setLoading(false);
     })();
