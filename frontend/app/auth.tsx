@@ -4,9 +4,7 @@ import {
   Text,
   StyleSheet,
   TextInput,
-  KeyboardAvoidingView,
   Platform,
-  ScrollView,
   Pressable,
   Image,
 } from "react-native";
@@ -14,6 +12,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { useAuth } from "@/src/context/AuthContext";
 import { useI18n } from "@/src/i18n/I18nContext";
@@ -89,19 +88,17 @@ export default function AuthScreen() {
         locations={[0, 0.5, 1]}
         style={StyleSheet.absoluteFill}
       />
-      <KeyboardAvoidingView
+      <KeyboardAwareScrollView
         style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        contentContainerStyle={[
+          styles.scroll,
+          { paddingTop: insets.top + spacing.xxl, paddingBottom: insets.bottom + spacing.xl },
+        ]}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        showsVerticalScrollIndicator={false}
+        bottomOffset={24}
       >
-        <ScrollView
-          contentContainerStyle={[
-            styles.scroll,
-            { paddingTop: insets.top + spacing.xxl, paddingBottom: insets.bottom + spacing.xl },
-          ]}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
-          showsVerticalScrollIndicator={false}
-        >
             <View style={styles.langTop}>
               <LanguageButton />
             </View>
@@ -235,8 +232,7 @@ export default function AuthScreen() {
               </Text>
               {t("auth.termsEnd")}
             </Text>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </KeyboardAwareScrollView>
     </View>
   );
 }

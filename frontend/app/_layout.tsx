@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { LogBox } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 import { StatusBar } from "expo-status-bar";
 import { useFonts } from "expo-font";
 
@@ -37,6 +38,7 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.surface }}>
+      <KeyboardProvider>
       <SafeAreaProvider>
         <I18nProvider>
           <AuthProvider>
@@ -54,6 +56,7 @@ export default function RootLayout() {
           </AuthProvider>
         </I18nProvider>
       </SafeAreaProvider>
+      </KeyboardProvider>
     </GestureHandlerRootView>
   );
 }

@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, TextInput, Pressable, KeyboardAvoidingView, Platform } from "react-native";
+import { View, Text, StyleSheet, TextInput, Pressable } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { Ionicons } from "@expo/vector-icons";
 import { apiRequest } from "@/src/api/client";
 import { useI18n } from "@/src/i18n/I18nContext";
@@ -41,13 +42,20 @@ export default function ResetPassword() {
   };
 
   return (
-    <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+    <View style={styles.root}>
       <View style={[styles.header, { paddingTop: insets.top + spacing.md }]}>
         <Pressable testID="reset-back" onPress={() => router.replace("/auth")} hitSlop={12}>
           <Ionicons name="chevron-back" size={26} color={colors.onSurface} />
         </Pressable>
       </View>
-      <View style={styles.body}>
+      <KeyboardAwareScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.body}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        showsVerticalScrollIndicator={false}
+        bottomOffset={24}
+      >
         <Text style={styles.title}>{t("reset.title")}</Text>
         <Text style={styles.subtitle}>{t("reset.subtitle")}</Text>
 
@@ -98,15 +106,15 @@ export default function ResetPassword() {
             style={{ marginTop: spacing.lg }}
           />
         )}
-      </View>
-    </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
   header: { paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
-  body: { flex: 1, paddingHorizontal: spacing.lg },
+  body: { paddingHorizontal: spacing.lg },
   title: { fontFamily: fonts.display, fontSize: 28, color: colors.onSurface, marginBottom: spacing.sm },
   subtitle: { fontFamily: fonts.body, fontSize: 15, color: colors.muted, lineHeight: 22, marginBottom: spacing.xl },
   input: {

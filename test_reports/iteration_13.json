@@ -1,0 +1,36 @@
+{
+  "summary": "Iteration 13 — Keyboard-overlap fix (react-native-keyboard-controller KeyboardProvider + KeyboardAwareScrollView bottomOffset=24) verified on Expo web preview at 390x667 (iPhone-12-like) mobile viewport. All four form screens render, all inputs focus/accept text, and all submit CTAs are reachable via scroll with keyboardShouldPersistTaps='handled'. Auth login regression PASSED: demo@tradequest.app / demo123 signs in and lands on the Learn tab. NOTE: Full native keyboard-overlap behavior (iOS/Android) CANNOT be validated in the web preview — the keyboard-controller library only intercepts the software keyboard on native builds; on web, KeyboardAwareScrollView degrades to a regular ScrollView. Final overlap verification on iPhone 12 / small Android requires a native/device build.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/tmp/auth_login.png",
+    "/tmp/auth_signup.png",
+    "/tmp/forgot.png",
+    "/tmp/reset.png",
+    "/tmp/support.png",
+    "/tmp/after_login.png"
+  ],
+  "action_items": [
+    "Web preview cannot emulate native soft-keyboard overlap. Please verify on a real iPhone 12 (iOS) and a small Android device (e.g., Pixel 4a / any 5.5\" screen) that focused Name/Email/Password fields stay above the keyboard on /auth (both login + signup), /forgot-password, /reset-password (token + new-password), and /support (subject + multiline message). Confirm bottomOffset=24 leaves a visible gap.",
+    "Optional polish: consider setting the `enabled` prop on KeyboardAwareScrollView explicitly to `true` and add `extraKeyboardSpace` (e.g., 0) if any specific field needs extra offset — current defaults look fine but real-device pass may reveal per-field tweaks."
+  ],
+  "critical_code_review_comments": [
+    "_layout.tsx:41 KeyboardProvider correctly wraps SafeAreaProvider (must be outside so its context is available to children on all routes). No duplicate providers found — good.",
+    "auth.tsx:91-101 KeyboardAwareScrollView passes keyboardShouldPersistTaps='handled' + keyboardDismissMode='on-drag' + bottomOffset=24. Removed the previous KeyboardAvoidingView+behavior=padding combo — no double-handling of insets. The scroll contentContainerStyle preserves top/bottom safe-area padding (insets.top + xxl / insets.bottom + xl). Buttons remain tappable while keyboard is open thanks to keyboardShouldPersistTaps.",
+    "forgot-password.tsx:44-51, reset-password.tsx:51-58, support.tsx:67-74 all use identical bottomOffset=24 + keyboardShouldPersistTaps='handled' pattern — consistent implementation across screens.",
+    "package.json has react-native-keyboard-controller@1.18.5 (matches PRD note). No lingering imports of KeyboardAvoidingView on any of the four screens — verified via view_bulk.",
+    "No unwrapped raw text found on any of the four screens; all interactive controls have testID; touch targets are 44+pt (inputs 50-54h, PrimaryButton 54h)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (frontend-only run)", "frontend": "100% on web preview (native keyboard-overlap NOT web-testable — flagged for on-device verification)"},
+  "seed_data_creation": "None — only used existing demo@tradequest.app account (already seeded) for the login regression. No support ticket was submitted (typed text only, did not tap Send).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Web preview at 390x667 cannot exercise the OS soft keyboard, so KeyboardAwareScrollView's core behavior (translating the focused input above the keyboard) is a no-op on web. What web CAN verify is: (a) the provider wiring doesn't crash any screen, (b) inputs still focus/accept text, (c) keyboardShouldPersistTaps='handled' keeps CTAs tappable while an input is focused, and (d) the layout still scrolls so the submit button is reachable. All four verified. To test on-device: eas build/expo-dev-client on iPhone 12 + Pixel 4a, focus each input in order (Name→Email→Password on /auth signup, Email on /forgot, Token→New Password on /reset, Subject→Message multiline on /support) and confirm ~24pt gap between the focused field and the keyboard top edge.",
+  "rca_of_issue": "Original bug: KeyboardAvoidingView(behavior='padding')+ScrollView on iOS shrinks the container but does not always scroll the focused input into view on small screens (iPhone 12: 844pt height vs 13 Pro: 844pt but different safe-area). Android with behavior='height' has similar limitations plus adjustResize interaction with edge-to-edge. FIX: react-native-keyboard-controller's KeyboardAwareScrollView listens for native keyboard frame events on both platforms and imperatively scrolls the focused input into view with a configurable bottomOffset gap. Requires KeyboardProvider at root — correctly added in _layout.tsx:41."
+}
