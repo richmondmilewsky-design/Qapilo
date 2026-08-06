@@ -19,35 +19,54 @@ UNITS = []
 UNIT_T = {"de": {}, "es": {}}
 LESSON_T = {"de": {}, "es": {}}
 
+# Placeholder shown for lessons whose cards/quiz have not been generated yet
+# (u51-u200 until curriculum_data.json is regenerated for the 200-unit blueprint).
+_PLACEHOLDER_CARDS = [{
+    "heading": "Coming soon",
+    "body": "This lesson is being prepared and will be available soon.",
+}]
+
 for _spec in UNITS_SPEC:
     _uid = _spec["id"]
     _d = _DATA.get(_uid)
-    if not _d:
-        continue
+    _gen_lessons = _d["lessons"] if _d else []
     _lessons_en = []
-    for _lspec, _lgen in zip(_spec["lessons"], _d["lessons"]):
-        _en = _lgen["en"]
-        _lessons_en.append({
-            "id": _lspec["id"],
-            "title": _lspec["title"],
-            "icon": _lspec["icon"],
-            "xp": _spec["xp"],
-            "cards": _en["cards"],
-            "questions": [
-                {"q": q["q"], "options": q["options"], "answer": q["answer"], "explain": q["explain"]}
-                for q in _en["questions"]
-            ],
-        })
-        for _lg in ("de", "es"):
-            _g = _lgen[_lg]
-            LESSON_T[_lg][_lspec["id"]] = {
-                "title": _g["title"],
-                "cards": _g["cards"],
+    for _idx, _lspec in enumerate(_spec["lessons"]):
+        _lgen = _gen_lessons[_idx] if _idx < len(_gen_lessons) else None
+        if _lgen:
+            _en = _lgen["en"]
+            _lessons_en.append({
+                "id": _lspec["id"],
+                "title": _lspec["title"],
+                "icon": _lspec["icon"],
+                "xp": _spec["xp"],
+                "cards": _en["cards"],
                 "questions": [
-                    {"q": q["q"], "options": q["options"], "explain": q["explain"]}
-                    for q in _g["questions"]
+                    {"q": q["q"], "options": q["options"], "answer": q["answer"], "explain": q["explain"]}
+                    for q in _en["questions"]
                 ],
-            }
+            })
+            for _lg in ("de", "es"):
+                _g = _lgen[_lg]
+                LESSON_T[_lg][_lspec["id"]] = {
+                    "title": _g["title"],
+                    "cards": _g["cards"],
+                    "questions": [
+                        {"q": q["q"], "options": q["options"], "explain": q["explain"]}
+                        for q in _g["questions"]
+                    ],
+                }
+        else:
+            # Ungenerated lesson: placeholder cards, no quiz. loc_* helpers fall
+            # back to the English blueprint title/cards (no de/es entry added).
+            _lessons_en.append({
+                "id": _lspec["id"],
+                "title": _lspec["title"],
+                "icon": _lspec["icon"],
+                "xp": _spec["xp"],
+                "cards": [dict(_c) for _c in _PLACEHOLDER_CARDS],
+                "questions": [],
+            })
     UNITS.append({
         "id": _uid,
         "title": _spec["title"],
@@ -56,11 +75,12 @@ for _spec in UNITS_SPEC:
         "tier": _spec["tier"],
         "lessons": _lessons_en,
     })
-    for _lg in ("de", "es"):
-        UNIT_T[_lg][_uid] = {
-            "title": _d["unit"][_lg]["title"],
-            "subtitle": _d["unit"][_lg]["subtitle"],
-        }
+    if _d:
+        for _lg in ("de", "es"):
+            UNIT_T[_lg][_uid] = {
+                "title": _d["unit"][_lg]["title"],
+                "subtitle": _d["unit"][_lg]["subtitle"],
+            }
 
 # Flatten lessons for quick lookup
 LESSON_MAP = {}
