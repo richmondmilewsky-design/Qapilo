@@ -53,3 +53,7 @@ See `/app/memory/test_credentials.md` (demo@tradequest.app / demo123).
 - **Curriculum:** 50 units / 150 lessons across 5 difficulty tiers (Beginner→Pro), fully trilingual (EN/DE/ES). Generated via Claude (generate_curriculum.py) into curriculum_data.json, loaded by curriculum.py. Free tiers = u1-u20; Pro = u21-u50. Endless Practice mode (/practice) recycles questions with rising difficulty + scaled XP.
 - **AI Tutor real-time:** injects live Finnhub prices (auto-detects tickers/company names) and, when TAVILY_API_KEY is set, recent Tavily news snippets, then Claude answers with a mandatory "not financial advice" disclaimer. Works without Tavily (prices + disclaimer) — news activates once key added.
 - Google OAuth cannot be automated in tests (Emergent-managed).
+
+## Fix — Iteration 13 (2026-06): Keyboard overlap on form screens
+- Wrapped root `_layout.tsx` with `KeyboardProvider` (react-native-keyboard-controller@1.18.5).
+- Replaced RN `KeyboardAvoidingView`+`ScrollView` with `KeyboardAwareScrollView` (bottomOffset=24) on auth, forgot-password, reset-password, support screens so focused inputs stay above the keyboard on small devices (iPhone 12 / Android). Logic, design, texts unchanged. Web-preview E2E passed (13/13); native on-device validation still recommended.
