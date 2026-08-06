@@ -48,8 +48,10 @@ for _spec in UNITS_SPEC:
             })
             for _lg in ("de", "es"):
                 _g = _lgen[_lg]
+                # Blueprint is authoritative for the lesson title; JSON supplies
+                # only the translated cards/questions (the actual content).
                 LESSON_T[_lg][_lspec["id"]] = {
-                    "title": _g["title"],
+                    "title": _lspec["title"],
                     "cards": _g["cards"],
                     "questions": [
                         {"q": q["q"], "options": q["options"], "explain": q["explain"]}
@@ -75,12 +77,8 @@ for _spec in UNITS_SPEC:
         "tier": _spec["tier"],
         "lessons": _lessons_en,
     })
-    if _d:
-        for _lg in ("de", "es"):
-            UNIT_T[_lg][_uid] = {
-                "title": _d["unit"][_lg]["title"],
-                "subtitle": _d["unit"][_lg]["subtitle"],
-            }
+    # Unit title/subtitle come from the blueprint for every language (blueprint is
+    # authoritative). UNIT_T is intentionally not filled from the old JSON metadata.
 
 # Flatten lessons for quick lookup
 LESSON_MAP = {}
