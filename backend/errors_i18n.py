@@ -18,6 +18,11 @@ def set_lang_from_header(accept_language: str):
 
 
 ERRORS = {
+    "bad_request": {
+        "en": "Invalid request. Please try again.",
+        "de": "Ungültige Anfrage. Bitte versuche es erneut.",
+        "es": "Solicitud no válida. Inténtalo de nuevo.",
+    },
     "not_authenticated": {
         "en": "Not authenticated",
         "de": "Nicht authentifiziert",

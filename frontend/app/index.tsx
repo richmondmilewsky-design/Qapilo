@@ -15,6 +15,7 @@ export default function Index() {
     if (loading) return;
     (async () => {
       if (user && !user.accepted_terms) return router.replace("/agreement");
+      if (user && !user.experience_level) return router.replace("/experience");
       if (user) return router.replace("/(tabs)");
       const onboarded = await storage.getItem<boolean>(ONBOARDING_KEY, false);
       router.replace(onboarded ? "/auth" : "/onboarding");

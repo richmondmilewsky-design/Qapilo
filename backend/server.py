@@ -156,6 +156,10 @@ class ResendVerificationBody(BaseModel):
     lang: Optional[str] = "en"
 
 
+class ExperienceBody(BaseModel):
+    experience_level: str
+
+
 # ----------------------------- Helpers -----------------------------
 def make_token(user_id: str) -> str:
     now = datetime.now(timezone.utc)
@@ -590,6 +594,19 @@ async def resend_verification(body: ResendVerificationBody, user: dict = Depends
         raise HTTPException(status_code=429, detail=L("rate_limited"))
     await _issue_email_code(user["user_id"], user["email"], body.lang or "en")
     return {"ok": True, "message": L("verify_sent")}
+
+
+@api.patch("/auth/experience")
+async def set_experience(body: ExperienceBody, user: dict = Depends(get_current_user)):
+    """One-time (and later editable) learning experience level selection."""
+    level = (body.experience_level or "").strip()
+    if level not in ("beginner", "some", "advanced"):
+        raise HTTPException(status_code=400, detail=L("bad_request"))
+    await db.users.update_one(
+        {"user_id": user["user_id"]}, {"$set": {"experience_level": level}}
+    )
+    fresh = await db.users.find_one({"user_id": user["user_id"]}, {"_id": 0})
+    return {"user": public_user(fresh)}
 
 
 @api.post("/auth/accept-terms")

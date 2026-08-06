@@ -25,6 +25,7 @@ export type User = {
   auth_provider: string;
   email_verified: boolean;
   created_at?: string | null;
+  experience_level?: string | null;
   is_pro: boolean;
   pro_source: "trial" | "subscription" | "free";
   in_trial: boolean;
@@ -49,6 +50,7 @@ type AuthCtx = {
   refresh: () => Promise<void>;
   verifyEmail: (code: string, lang: string) => Promise<void>;
   resendVerification: (lang: string) => Promise<void>;
+  setExperience: (level: string) => Promise<void>;
   setUser: (u: User) => void;
 };
 
@@ -233,9 +235,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await apiRequest("/auth/resend-verification", { method: "POST", body: { lang } });
   };
 
+  const setExperience = async (level: string) => {
+    const data = await apiRequest<{ user: User }>("/auth/experience", {
+      method: "PATCH",
+      body: { experience_level: level },
+    });
+    setUser(data.user);
+  };
+
   return (
     <Ctx.Provider
-      value={{ user, loading, signup, login, loginWithGoogle, loginWithApple, logout, refresh, verifyEmail, resendVerification, setUser }}
+      value={{ user, loading, signup, login, loginWithGoogle, loginWithApple, logout, refresh, verifyEmail, resendVerification, setExperience, setUser }}
     >
       {children}
     </Ctx.Provider>

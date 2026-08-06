@@ -42,7 +42,7 @@ export default function Agreement() {
         },
       });
       setUser(res.user);
-      router.replace("/(tabs)");
+      router.replace("/");
     } catch {
       setBusy(false);
     }
