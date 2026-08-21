@@ -10,7 +10,7 @@ export default function Root({ children }: PropsWithChildren) {
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
         <meta
           name="viewport"
-          content="width=device-width, initial-scale=1, shrink-to-fit=no"
+          content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover"
         />
         {/*
           Disable body scrolling on web to make ScrollView components work correctly.
@@ -21,6 +21,24 @@ export default function Root({ children }: PropsWithChildren) {
         <style
           dangerouslySetInnerHTML={{
             __html: `
+              /* Dynamic viewport height so Safari's collapsing address bar
+                 doesn't cut off the bottom. dvh where supported, with a
+                 -webkit-fill-available fallback for older iOS Safari. */
+              html, body {
+                height: 100vh !important;
+                height: -webkit-fill-available !important;
+              }
+              @supports (height: 100dvh) {
+                html, body { height: 100dvh !important; }
+              }
+              @supports (padding: max(0px, env(safe-area-inset-bottom))) {
+                [role="tablist"] {
+                  box-sizing: border-box !important;
+                  height: calc(52px + max(10px, env(safe-area-inset-bottom))) !important;
+                  min-height: calc(52px + max(10px, env(safe-area-inset-bottom))) !important;
+                  padding-bottom: max(10px, env(safe-area-inset-bottom)) !important;
+                }
+              }
               body > div:first-child { position: fixed !important; top: 0; left: 0; right: 0; bottom: 0; }
               [role="tablist"] [role="tab"] * { overflow: visible !important; }
               [role="heading"], [role="heading"] * { overflow: visible !important; }
