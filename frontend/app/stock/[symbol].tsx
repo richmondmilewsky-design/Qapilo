@@ -29,7 +29,7 @@ export default function StockDetail() {
   const { symbol } = useLocalSearchParams<{ symbol: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { locale } = useI18n();
+  const { t, locale } = useI18n();
   const [data, setData] = useState<Detail | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -140,11 +140,11 @@ export default function StockDetail() {
             height={160}
             disableScroll
           />
-          <Text style={styles.chartLabel}>Last 30 sessions</Text>
+          <Text style={styles.chartLabel}>{t("stock.chartLabel")}</Text>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>What is {data.symbol}?</Text>
+          <Text style={styles.sectionTitle}>{t("stock.whatIs").replace("{symbol}", data.symbol)}</Text>
           <Text style={styles.explain}>{data.explain}</Text>
         </View>
 
@@ -152,8 +152,8 @@ export default function StockDetail() {
           <Ionicons name="information-circle-outline" size={16} color={colors.muted} />
           <Text style={styles.disclaimerText}>
             {data.source === "alphavantage"
-              ? "Live data via Alpha Vantage. Educational use only — not investment advice."
-              : "Sample market data for learning. Not investment advice."}
+              ? t("stock.disclaimerLive")
+              : t("stock.disclaimerSample")}
           </Text>
         </View>
       </ScrollView>

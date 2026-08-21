@@ -96,8 +96,8 @@ export default function TutorScreen() {
         {
           role: "assistant",
           content: limitHit
-            ? "⚡ You've used your free AI Tutor messages for today. Upgrade to Pro for unlimited chat!"
-            : "Sorry, I couldn't answer that right now. Please try again.",
+            ? t("tutor.errLimit")
+            : t("tutor.errGeneric"),
         },
       ]);
       if (limitHit) setRemaining(0);
