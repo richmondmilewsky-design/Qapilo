@@ -31,8 +31,15 @@ if (Platform.OS === "web" && typeof document !== "undefined") {
     s.textContent = `
       /* Dynamic viewport height so Safari's collapsing address bar never cuts
          off the bottom (dvh where supported, -webkit-fill-available fallback). */
-      html, body { height: 100vh; height: -webkit-fill-available; }
+      html, body { height: 100vh; height: -webkit-fill-available; overflow: hidden; }
       @supports (height: 100dvh) { html, body { height: 100dvh; } }
+      /* Pin the app shell to the visual viewport so the bottom tab bar stays
+         fixed at all viewport widths and never scrolls with the content. */
+      #root {
+        position: fixed !important;
+        top: 0; left: 0; right: 0; bottom: 0;
+        overflow: hidden;
+      }
       /* Bottom tab bar clears the iOS home indicator on Safari/Chrome. */
       @supports (padding: max(0px, env(safe-area-inset-bottom))) {
         [role="tablist"] {
