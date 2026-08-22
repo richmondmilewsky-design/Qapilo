@@ -62,10 +62,15 @@ export default function Paywall() {
     }
   };
 
+  // For plans with an annual price the MONTHLY figure is shown big/white on top
+  // and the yearly figure small/muted underneath. The monthly-only plan (no
+  // perMonth) is unchanged.
   const priceLine = (p: PlanOffer) =>
-    `${p.price} ${p.currency} ${t(p.period === "year" ? "pw.per_year" : "pw.per_month")}`;
+    p.perMonth
+      ? `${p.perMonth} ${p.currency} ${t("pw.per_month")}`
+      : `${p.price} ${p.currency} ${t(p.period === "year" ? "pw.per_year" : "pw.per_month")}`;
   const perMonthLine = (p: PlanOffer) =>
-    p.perMonth ? `${t("pw.equals")} ${p.perMonth} ${p.currency} ${t("pw.per_month")}` : null;
+    p.perMonth ? `${t("pw.equals")} ${p.price} ${p.currency} ${t("pw.per_year")}` : null;
 
   const ctaLabel = selectedPlan.cta === "trial" ? t("pw.ctaTrial") : t("pw.ctaUnlock");
 
