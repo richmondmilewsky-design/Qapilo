@@ -37,7 +37,7 @@ type Unit = { id: string; title: string; subtitle: string; color: string; tier: 
 
 const OFFSETS = [0, 52, 74, 52, 0, -52, -74, -52];
 const PAGE_SIZE = 20; // levels (units) shown per page
-const LOOKAHEAD = 3;  // reveal the current level + this many upcoming levels
+const LOOKAHEAD = 10; // reveal the current level + this many upcoming levels
 
 // Index of the unit holding the user's current position: the first unit that
 // still has an unlocked, not-yet-completed lesson (falls back to the last).
