@@ -100,3 +100,9 @@ See `/app/memory/test_credentials.md` (demo@tradequest.app / demo123).
 - TIER_META already had 10 tiers; build_units_spec assigns tier by position (i-1)//20+1.
 - Structural verify passed: 200 units, 600 lessons, 10 tiers×20, unit/lesson IDs unique & contiguous, all units 3 lessons, dependent files parse OK.
 - NEXT (deferred, on user request only): generate cards/quizzes/translations into curriculum_data.json for the new 200-unit structure.
+
+## Feature — Learn pagination + future-level hiding (2026-06)
+- backend/server.py: FREE_LEVEL_LIMIT 30 -> 40 (paywall auto-trigger now at level 40 OR 30-day trial end). No paywall in onboarding for new users.
+- Paywall price cards (app/paywall.tsx): monthly price now big/white on top, yearly small/muted below (only helper lines swapped; styles/plans.ts unchanged).
+- Learn screen (app/(tabs)/index.tsx): 200 units paginated into 10 pages of 20 (PAGE_SIZE=20). Auto-jumps to page containing current level on load. Prev/next arrow pager top + bottom. i18n learn.page.
+- Future-level hiding: units beyond currentUnitIndex+LOOKAHEAD (LOOKAHEAD=3) show only lock icon + "LEVEL n" + "Locked" placeholder; lesson titles hidden (Node hideLabel prop). i18n learn.locked. Skill-tree layout unchanged.

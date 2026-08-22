@@ -36,6 +36,19 @@ type Lesson = {
 type Unit = { id: string; title: string; subtitle: string; color: string; tier: number; lessons: Lesson[] };
 
 const OFFSETS = [0, 52, 74, 52, 0, -52, -74, -52];
+const PAGE_SIZE = 20; // levels (units) shown per page
+const LOOKAHEAD = 3;  // reveal the current level + this many upcoming levels
+
+// Index of the unit holding the user's current position: the first unit that
+// still has an unlocked, not-yet-completed lesson (falls back to the last).
+function currentUnitIndex(units: Unit[]): number {
+  if (!units.length) return 0;
+  const idx = units.findIndex((u) => u.lessons.some((l) => l.unlocked && !l.completed));
+  return idx >= 0 ? idx : units.length - 1;
+}
+function currentPageFor(units: Unit[]): number {
+  return Math.floor(currentUnitIndex(units) / PAGE_SIZE);
+}
 
 export default function LearnScreen() {
   const { user, refresh, verifyEmail, resendVerification } = useAuth();
@@ -43,6 +56,8 @@ export default function LearnScreen() {
   const insets = useSafeAreaInsets();
   const { t, locale } = useI18n();
   const [units, setUnits] = useState<Unit[]>([]);
+  const [page, setPage] = useState(0);
+  const scrollRef = useRef<ScrollView>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [nudgeDismissed, setNudgeDismissed] = useState(false);
@@ -65,6 +80,8 @@ export default function LearnScreen() {
     try {
       const data = await apiRequest<{ units: Unit[] }>("/curriculum");
       setUnits(data.units);
+      // On (re)load, jump to the page holding the user's current level.
+      setPage(currentPageFor(data.units));
     } catch {}
   }, []);
 
@@ -203,6 +220,18 @@ export default function LearnScreen() {
   const showNudge = user.in_trial && user.trial_days_left <= 2 && !nudgeDismissed;
   let currentAssigned = false;
 
+  const totalPages = Math.max(1, Math.ceil(units.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages - 1);
+  const pageUnits = units.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
+  const rangeStart = safePage * PAGE_SIZE + 1;
+  const rangeEnd = Math.min(units.length, safePage * PAGE_SIZE + PAGE_SIZE);
+  const revealedMax = currentUnitIndex(units) + LOOKAHEAD;
+  const goToPage = (p: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setPage(Math.max(0, Math.min(totalPages - 1, p)));
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
+  };
+
   return (
     <View style={styles.root}>
       {/* Sticky glass header */}
@@ -235,6 +264,7 @@ export default function LearnScreen() {
       </BlurView>
 
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={{
           paddingTop: insets.top + 108,
           paddingBottom: spacing.xxxl,
@@ -301,14 +331,62 @@ export default function LearnScreen() {
           <Ionicons name="chevron-forward" size={22} color={colors.muted} />
         </Pressable>
 
-        {units.map((unit) => (
+        {totalPages > 1 && (
+          <View style={styles.pager} testID="level-pager-top">
+            <Pressable
+              testID="pager-prev"
+              disabled={safePage === 0}
+              onPress={() => goToPage(safePage - 1)}
+              style={[styles.pagerBtn, safePage === 0 && styles.pagerBtnDisabled]}
+              hitSlop={8}
+            >
+              <Ionicons name="chevron-back" size={22} color={safePage === 0 ? colors.muted : colors.onSurface} />
+            </Pressable>
+            <View style={styles.pagerLabel}>
+              <Text style={styles.pagerTitle}>
+                {t("learn.level")} {rangeStart}–{rangeEnd}
+              </Text>
+              <Text style={styles.pagerSub}>
+                {t("learn.page")} {safePage + 1}/{totalPages}
+              </Text>
+            </View>
+            <Pressable
+              testID="pager-next"
+              disabled={safePage >= totalPages - 1}
+              onPress={() => goToPage(safePage + 1)}
+              style={[styles.pagerBtn, safePage >= totalPages - 1 && styles.pagerBtnDisabled]}
+              hitSlop={8}
+            >
+              <Ionicons name="chevron-forward" size={22} color={safePage >= totalPages - 1 ? colors.muted : colors.onSurface} />
+            </Pressable>
+          </View>
+        )}
+
+        {pageUnits.map((unit, pi) => {
+          const absIndex = safePage * PAGE_SIZE + pi;
+          const hidden = absIndex > revealedMax;
+          return (
           <View key={unit.id} style={styles.unit}>
             <View style={[styles.unitHeader, { borderLeftColor: unit.color }]}>
-              <Text style={[styles.tierLabel, { color: unit.color }]}>
-                {t("learn.level")} {unit.id.replace("u", "")} · {t(`tier.${unit.tier}` as any)}
-              </Text>
-              <Text style={styles.unitTitle}>{unit.title}</Text>
-              <Text style={styles.unitSubtitle}>{unit.subtitle}</Text>
+              {hidden ? (
+                <>
+                  <Text style={[styles.tierLabel, { color: colors.muted }]}>
+                    {t("learn.level")} {unit.id.replace("u", "")}
+                  </Text>
+                  <View style={styles.lockedUnitRow}>
+                    <Ionicons name="lock-closed" size={18} color={colors.muted} />
+                    <Text style={styles.lockedUnitTitle}>{t("learn.locked")}</Text>
+                  </View>
+                </>
+              ) : (
+                <>
+                  <Text style={[styles.tierLabel, { color: unit.color }]}>
+                    {t("learn.level")} {unit.id.replace("u", "")} · {t(`tier.${unit.tier}` as any)}
+                  </Text>
+                  <Text style={styles.unitTitle}>{unit.title}</Text>
+                  <Text style={styles.unitSubtitle}>{unit.subtitle}</Text>
+                </>
+              )}
             </View>
 
             {unit.lessons.map((lesson, i) => {
@@ -322,6 +400,7 @@ export default function LearnScreen() {
                   color={unit.color}
                   offset={offset}
                   isCurrent={isCurrent}
+                  hideLabel={hidden}
                   onPress={() => {
                     if (!lesson.unlocked) {
                       if (lesson.pro_locked) {
@@ -339,7 +418,33 @@ export default function LearnScreen() {
               );
             })}
           </View>
-        ))}
+          );
+        })}
+
+        {totalPages > 1 && (
+          <View style={styles.pagerBottom} testID="level-pager-bottom">
+            <Pressable
+              disabled={safePage === 0}
+              onPress={() => goToPage(safePage - 1)}
+              style={[styles.pagerNavBtn, safePage === 0 && styles.pagerBtnDisabled]}
+            >
+              <Ionicons name="chevron-back" size={20} color={safePage === 0 ? colors.muted : colors.onSurface} />
+              <Text style={[styles.pagerNavText, safePage === 0 && { color: colors.muted }]}>
+                {t("learn.level")} {Math.max(1, rangeStart - PAGE_SIZE)}–{Math.max(PAGE_SIZE, rangeStart - 1)}
+              </Text>
+            </Pressable>
+            <Pressable
+              disabled={safePage >= totalPages - 1}
+              onPress={() => goToPage(safePage + 1)}
+              style={[styles.pagerNavBtn, safePage >= totalPages - 1 && styles.pagerBtnDisabled]}
+            >
+              <Text style={[styles.pagerNavText, safePage >= totalPages - 1 && { color: colors.muted }]}>
+                {t("learn.level")} {Math.min(units.length, rangeEnd + 1)}–{Math.min(units.length, rangeEnd + PAGE_SIZE)}
+              </Text>
+              <Ionicons name="chevron-forward" size={20} color={safePage >= totalPages - 1 ? colors.muted : colors.onSurface} />
+            </Pressable>
+          </View>
+        )}
       </ScrollView>
 
       {welcome && (
@@ -472,12 +577,14 @@ function Node({
   color,
   offset,
   isCurrent,
+  hideLabel,
   onPress,
 }: {
   lesson: Lesson;
   color: string;
   offset: number;
   isCurrent: boolean;
+  hideLabel?: boolean;
   onPress: () => void;
 }) {
   const iconName = (LESSON_ICONS[lesson.icon] || "book-open-variant") as any;
@@ -536,7 +643,7 @@ function Node({
         )}
       </Pressable>
       <Text style={styles.nodeLabel} numberOfLines={2}>
-        {lesson.title}
+        {hideLabel ? "\u00A0" : lesson.title}
       </Text>
     </View>
   );
@@ -666,6 +773,52 @@ const styles = StyleSheet.create({
   dailyRow: { flexDirection: "row", justifyContent: "space-between", marginTop: spacing.sm },
   dailyText: { fontFamily: fonts.bodyMed, fontSize: 12, color: colors.muted },
   unit: { marginBottom: spacing.xl },
+  pager: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
+    backgroundColor: colors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    padding: spacing.sm,
+  },
+  pagerBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceTertiary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pagerBtnDisabled: { opacity: 0.4 },
+  pagerLabel: { flex: 1, alignItems: "center" },
+  pagerTitle: { fontFamily: fonts.display, fontSize: 18, color: colors.onSurface },
+  pagerSub: { fontFamily: fonts.bodyMed, fontSize: 12, color: colors.muted, marginTop: 2 },
+  pagerBottom: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: spacing.md,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.sm,
+  },
+  pagerNavBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    backgroundColor: colors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  pagerNavText: { fontFamily: fonts.bodyMed, fontSize: 12, color: colors.onSurface },
+  lockedUnitRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs, marginTop: 2 },
+  lockedUnitTitle: { fontFamily: fonts.display, fontSize: 20, color: colors.muted },
   tierLabel: { fontFamily: fonts.displayMed, fontSize: 11, letterSpacing: 1.5, marginBottom: 2 },
   practiceCta: {
     flexDirection: "row",
