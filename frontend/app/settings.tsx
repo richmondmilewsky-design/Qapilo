@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { apiRequest } from "@/src/api/client";
 import { useAuth } from "@/src/context/AuthContext";
 import { useI18n } from "@/src/i18n/I18nContext";
+import HomeLogo from "@/src/components/HomeLogo";
 import { colors, fonts, radius, spacing } from "@/src/theme/theme";
 
 const CONTACT = "privacy@qapilo.app";
@@ -142,9 +143,12 @@ export default function SettingsScreen() {
   return (
     <View style={styles.root}>
       <View style={[styles.topBar, { paddingTop: insets.top + spacing.sm }]}>
-        <Pressable testID="settings-back" onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="chevron-back" size={26} color={colors.onSurface} />
-        </Pressable>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
+          <HomeLogo size={26} />
+          <Pressable testID="settings-back" onPress={() => router.back()} hitSlop={12}>
+            <Ionicons name="chevron-back" size={26} color={colors.onSurface} />
+          </Pressable>
+        </View>
         <Text style={styles.topTitle}>{t("settings.title")}</Text>
         <View style={{ width: 26 }} />
       </View>

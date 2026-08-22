@@ -18,6 +18,7 @@ import * as Haptics from "expo-haptics";
 import { apiRequest } from "@/src/api/client";
 import { storage } from "@/src/utils/storage";
 import { useI18n } from "@/src/i18n/I18nContext";
+import HomeLogo from "@/src/components/HomeLogo";
 import { colors, fonts, radius, spacing } from "@/src/theme/theme";
 
 const AI_NOTICE_KEY = "qapilo_ai_notice_ack";
@@ -113,6 +114,7 @@ export default function TutorScreen() {
     <View style={[styles.root, { paddingTop: insets.top + spacing.sm }]}>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
+          <HomeLogo />
           <View style={styles.botBadge}>
             <MaterialCommunityIcons name="robot-happy" size={20} color={colors.onBrand} />
           </View>

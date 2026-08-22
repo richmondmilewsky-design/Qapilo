@@ -10,6 +10,7 @@ import { apiRequest } from "@/src/api/client";
 import { useI18n } from "@/src/i18n/I18nContext";
 import { colors, fonts, radius, spacing, BADGE_ICONS } from "@/src/theme/theme";
 import { Loading } from "@/src/components/ui";
+import HomeLogo from "@/src/components/HomeLogo";
 import StockLogo from "@/src/components/StockLogo";
 
 
@@ -80,6 +81,9 @@ export default function ProfileScreen() {
             locations={[0, 0.55, 1]}
             style={StyleSheet.absoluteFill}
           />
+          <View style={[styles.bannerLogo, { top: insets.top + spacing.sm }]}>
+            <HomeLogo />
+          </View>
           <View style={[styles.bannerContent, { paddingTop: insets.top + spacing.xl }]}>
             {user.picture ? (
               <Image source={{ uri: user.picture }} style={styles.avatar} />
@@ -225,6 +229,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
   banner: { height: 260, justifyContent: "flex-end" },
+  bannerLogo: { position: "absolute", left: spacing.lg, zIndex: 10 },
   bannerContent: { alignItems: "center", paddingBottom: spacing.lg },
   avatar: { width: 88, height: 88, borderRadius: radius.pill, borderWidth: 3, borderColor: colors.brand },
   avatarFallback: {

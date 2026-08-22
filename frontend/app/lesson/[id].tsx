@@ -14,6 +14,7 @@ import { apiRequest } from "@/src/api/client";
 import { useAuth } from "@/src/context/AuthContext";
 import { useI18n } from "@/src/i18n/I18nContext";
 import { PrimaryButton, Loading } from "@/src/components/ui";
+import HomeLogo from "@/src/components/HomeLogo";
 import { colors, fonts, radius, spacing, BADGE_ICONS } from "@/src/theme/theme";
 
 type Card = { heading: string; body: string };
@@ -185,6 +186,7 @@ export default function LessonScreen() {
     <View style={[styles.root, { paddingTop: insets.top + spacing.sm }]}>
       {/* Top bar */}
       <View style={styles.topBar}>
+        <HomeLogo confirm testID="lesson-home-logo" />
         <Pressable testID="lesson-close-button" onPress={() => router.back()} hitSlop={12}>
           <Ionicons name="close" size={28} color={colors.muted} />
         </Pressable>

@@ -6,6 +6,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { apiRequest } from "@/src/api/client";
 import { useI18n } from "@/src/i18n/I18nContext";
+import HomeLogo from "@/src/components/HomeLogo";
 import { colors, fonts, radius, spacing } from "@/src/theme/theme";
 import { Loading } from "@/src/components/ui";
 
@@ -56,6 +57,9 @@ export default function LeaderboardScreen() {
   return (
     <View style={[styles.root, { paddingTop: insets.top + spacing.md }]}>
       <View style={styles.header}>
+        <View style={styles.headerTop}>
+          <HomeLogo />
+        </View>
         <Text style={styles.title}>{t("leaderboard.title")}</Text>
         <Text style={styles.subtitle}>{t("leaderboard.subtitle")}</Text>
       </View>
@@ -111,6 +115,7 @@ export default function LeaderboardScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
   header: { paddingHorizontal: spacing.lg, marginBottom: spacing.sm },
+  headerTop: { marginBottom: spacing.sm },
   title: { fontFamily: fonts.display, fontSize: 30, color: colors.onSurface },
   subtitle: { fontFamily: fonts.body, fontSize: 14, color: colors.muted, marginTop: 2 },
   row: {

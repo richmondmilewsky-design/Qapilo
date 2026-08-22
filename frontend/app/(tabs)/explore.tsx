@@ -16,6 +16,7 @@ import * as Haptics from "expo-haptics";
 import { apiRequest } from "@/src/api/client";
 import { useI18n } from "@/src/i18n/I18nContext";
 import { LanguageButton } from "@/src/components/LanguageButton";
+import HomeLogo from "@/src/components/HomeLogo";
 import { colors, fonts, radius, spacing } from "@/src/theme/theme";
 import { Loading } from "@/src/components/ui";
 import StockLogo from "@/src/components/StockLogo";
@@ -107,7 +108,8 @@ export default function ExploreScreen() {
     <View style={[styles.root, { paddingTop: insets.top + spacing.md }]}>
       <View style={styles.headerBlock}>
         <View style={styles.titleRow}>
-          <View style={{ flex: 1 }}>
+          <HomeLogo />
+          <View style={{ flex: 1, marginLeft: spacing.sm }}>
             <Text style={styles.title}>{t("explore.title")}</Text>
             <Text style={styles.subtitle}>{t("explore.subtitle")}</Text>
           </View>
