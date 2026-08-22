@@ -59,7 +59,7 @@ CLAUDE_MODEL = "claude-sonnet-4-6"
 TRIAL_DAYS = 7
 # Free usage phase (no payment yet): ends after 30 days OR when the user reaches level 30.
 FREE_TRIAL_DAYS = 30
-FREE_LEVEL_LIMIT = 30
+FREE_LEVEL_LIMIT = 40
 PRO_UNITS = {f"u{i}" for i in range(21, 51)}  # tiers 3-5 (advanced) gated behind Pro
 FREE_TUTOR_DAILY_LIMIT = 3
 PAYPAL_CLIENT_ID = os.environ.get("PAYPAL_CLIENT_ID", "").strip()
@@ -234,7 +234,7 @@ def compute_pro(u: dict) -> dict:
     """Single source of truth for access state.
 
     Free usage phase is active until EITHER 30 days elapse (trial_ends_at)
-    OR the user reaches level 30. A paid subscription (pro_active) always
+    OR the user reaches level 40. A paid subscription (pro_active) always
     grants premium access. Returns a clear internal status only — the full
     paywall / enforcement UI is a separate step.
     """
