@@ -346,9 +346,6 @@ export default function LearnScreen() {
               <Text style={styles.pagerTitle}>
                 {t("learn.level")} {rangeStart}–{rangeEnd}
               </Text>
-              <Text style={styles.pagerSub}>
-                {t("learn.page")} {safePage + 1}/{totalPages}
-              </Text>
             </View>
             <Pressable
               testID="pager-next"
