@@ -237,20 +237,29 @@ export default function LearnScreen() {
       {/* Sticky glass header */}
       <BlurView intensity={40} tint="dark" style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
         <View style={styles.headerRow}>
-          <View style={styles.statChip} testID="header-streak">
-            <MaterialCommunityIcons name="fire" size={20} color={colors.amber} />
-            <Text style={styles.statChipText}>{user.streak}</Text>
-          </View>
-          <View style={styles.levelWrap}>
-            <Text style={styles.levelLabel}>{t("learn.level")} {user.level}</Text>
-            <View style={styles.xpBarBg}>
-              <View style={[styles.xpBarFill, { width: `${(user.level_current / user.level_needed) * 100}%` }]} />
+          <Pressable
+            testID="header-stats-link"
+            style={styles.headerStatsLink}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push("/(tabs)/profile");
+            }}
+          >
+            <View style={styles.statChip} testID="header-streak">
+              <MaterialCommunityIcons name="fire" size={20} color={colors.amber} />
+              <Text style={styles.statChipText}>{user.streak}</Text>
             </View>
-          </View>
-          <View style={styles.statChip} testID="header-xp">
-            <MaterialCommunityIcons name="flash" size={18} color={colors.brand} />
-            <Text style={styles.statChipText}>{user.xp}</Text>
-          </View>
+            <View style={styles.levelWrap}>
+              <Text style={styles.levelLabel}>{t("learn.level")} {user.level}</Text>
+              <View style={styles.xpBarBg}>
+                <View style={[styles.xpBarFill, { width: `${(user.level_current / user.level_needed) * 100}%` }]} />
+              </View>
+            </View>
+            <View style={styles.statChip} testID="header-xp">
+              <MaterialCommunityIcons name="flash" size={18} color={colors.brand} />
+              <Text style={styles.statChipText}>{user.xp}</Text>
+            </View>
+          </Pressable>
           <LanguageButton />
         </View>
         <View style={styles.dailyRow}>
@@ -751,6 +760,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   headerRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+  headerStatsLink: { flex: 1, flexDirection: "row", alignItems: "center", gap: spacing.md },
   statChip: {
     flexDirection: "row",
     alignItems: "center",
