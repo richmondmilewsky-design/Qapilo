@@ -24,7 +24,7 @@ from curriculum import (
     UNITS, LESSON_MAP, LESSON_ORDER, BADGES, BADGE_MAP,
     UNIT_T, LESSON_T, STOCK_T, norm_lang, LESSONS_BY_TIER, TIER_META,
 )
-from errors_i18n import L, set_lang_from_header
+from errors_i18n import L, set_lang_from_header, lang_ctx
 from stocks import STOCKS, STOCK_MAP, CATEGORIES, fallback_quote, fallback_history
 from emergentintegrations.llm.chat import LlmChat, UserMessage
 import email_service as email
@@ -308,6 +308,8 @@ def public_user(u: dict) -> dict:
         "consent_analytics": u.get("consent_analytics", False),
         "consent_product": u.get("consent_product", False),
         "consent_marketing": u.get("consent_marketing", False),
+        "consent_marketing_confirmed_at": u.get("consent_marketing_confirmed_at"),
+        "consent_marketing_ip": u.get("consent_marketing_ip"),
         **compute_pro(u),
     }
 
@@ -355,6 +357,25 @@ async def _issue_email_code(user_id: str, user_email: str, lang: str):
         {"code": code, "ttl": VERIFY_CODE_TTL_MIN}))
 
 
+async def _issue_marketing_code(user_id: str, user_email: str, lang: str):
+    """Generate a 6-digit marketing-consent (double opt-in) confirmation code,
+    store only its hash with an expiry, and send it via the transactional email
+    service. Mirrors _issue_email_code but uses its own collection/template so
+    the account email-verification flow stays completely untouched."""
+    code = f"{secrets.randbelow(1_000_000):06d}"
+    await db.marketing_consents.delete_many({"user_id": user_id})
+    await db.marketing_consents.insert_one({
+        "user_id": user_id,
+        "code_hash": _hash_token(code),
+        "created_at": datetime.now(timezone.utc),
+        "expires_at": datetime.now(timezone.utc) + timedelta(minutes=VERIFY_CODE_TTL_MIN),
+        "attempts": 0,
+    })
+    asyncio.create_task(email.send_and_log(
+        db, "marketing_confirmation", lang, user_email, user_id,
+        {"code": code, "ttl": VERIFY_CODE_TTL_MIN}))
+
+
 def _rate_limited(key: str, limit: int, window_sec: int) -> bool:
     """Return True if `key` has exceeded `limit` events within `window_sec`."""
     import time
@@ -373,6 +394,7 @@ async def ensure_indexes():
     await db.users.create_index("user_id", unique=True)
     await db.password_resets.create_index("expires_at", expireAfterSeconds=0)
     await db.email_verifications.create_index("expires_at", expireAfterSeconds=0)
+    await db.marketing_consents.create_index("expires_at", expireAfterSeconds=0)
     await db.email_events.create_index(
         "created_at", expireAfterSeconds=EMAIL_LOG_RETENTION_DAYS * 86400)
     await db.support_requests.create_index(
@@ -652,32 +674,104 @@ async def accept_terms(body: AcceptTermsBody, user: dict = Depends(get_current_u
     if not (body.accepted_terms and body.accepted_disclaimer):
         raise HTTPException(status_code=400, detail=L("consent_required"))
     now = datetime.now(timezone.utc).isoformat()
-    await db.users.update_one(
-        {"user_id": user["user_id"]},
-        {"$set": {"accepted_terms": True,
-                  "accepted_disclaimer": True,
-                  "consent_analytics": body.consent_analytics,
-                  "consent_product": body.consent_product,
-                  "consent_marketing": body.consent_marketing,
-                  "terms_accepted_at": now,
-                  "consents_updated_at": now}},
-    )
+    set_fields = {
+        "accepted_terms": True,
+        "accepted_disclaimer": True,
+        "consent_analytics": body.consent_analytics,
+        "consent_product": body.consent_product,
+        "terms_accepted_at": now,
+        "consents_updated_at": now,
+    }
+    pending = False
+    if body.consent_marketing and not user.get("consent_marketing", False):
+        # Double opt-in: marketing consent only becomes true after the user
+        # confirms an emailed code (see /auth/confirm-marketing-consent).
+        await _issue_marketing_code(user["user_id"], user["email"], lang_ctx.get())
+        pending = True
+    else:
+        set_fields["consent_marketing"] = body.consent_marketing
+    await db.users.update_one({"user_id": user["user_id"]}, {"$set": set_fields})
     fresh = await db.users.find_one({"user_id": user["user_id"]}, {"_id": 0})
-    return {"user": public_user(fresh)}
+    result = public_user(fresh)
+    if pending:
+        result["consent_marketing_pending"] = True
+    return {"user": result}
 
 
 @api.patch("/auth/consents")
 async def update_consents(body: ConsentsBody, user: dict = Depends(get_current_user)):
-    """GDPR right to withdraw: update the optional (voluntary) consents anytime."""
+    """GDPR right to withdraw: update the optional (voluntary) consents anytime.
+    Marketing opt-in requires double opt-in confirmation via an emailed code;
+    opting out always stays immediate, no confirmation needed."""
+    set_fields = {
+        "consent_analytics": body.consent_analytics,
+        "consent_product": body.consent_product,
+        "consents_updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    pending = False
+    if body.consent_marketing and not user.get("consent_marketing", False):
+        await _issue_marketing_code(user["user_id"], user["email"], lang_ctx.get())
+        pending = True
+    else:
+        set_fields["consent_marketing"] = body.consent_marketing
+    await db.users.update_one({"user_id": user["user_id"]}, {"$set": set_fields})
+    fresh = await db.users.find_one({"user_id": user["user_id"]}, {"_id": 0})
+    result = public_user(fresh)
+    if pending:
+        result["consent_marketing_pending"] = True
+    return {"user": result}
+
+
+@api.post("/auth/confirm-marketing-consent")
+async def confirm_marketing_consent(body: VerifyEmailBody, request: Request, user: dict = Depends(get_current_user)):
+    """Confirm the optional marketing/newsletter consent (double opt-in) with the
+    6-digit code emailed to the user. Follows the exact validation logic of
+    verify_email (expiry, attempt limit, rate limiting)."""
+    if user.get("consent_marketing", False):
+        fresh = await db.users.find_one({"user_id": user["user_id"]}, {"_id": 0})
+        return {"user": public_user(fresh)}
+    if _rate_limited(f"mktg_confirm:{user['user_id']}", 6, 900):
+        raise HTTPException(status_code=429, detail=L("rate_limited"))
+    code = (body.code or "").strip()
+    rec = await db.marketing_consents.find_one({"user_id": user["user_id"]})
+    if not rec:
+        raise HTTPException(status_code=400, detail=L("verify_invalid"))
+    exp = rec.get("expires_at")
+    if exp is not None and exp.tzinfo is None:
+        exp = exp.replace(tzinfo=timezone.utc)
+    if not exp or exp < datetime.now(timezone.utc):
+        await db.marketing_consents.delete_many({"user_id": user["user_id"]})
+        raise HTTPException(status_code=400, detail=L("verify_invalid"))
+    if rec.get("attempts", 0) >= 6:
+        await db.marketing_consents.delete_many({"user_id": user["user_id"]})
+        raise HTTPException(status_code=429, detail=L("rate_limited"))
+    if _hash_token(code) != rec.get("code_hash"):
+        await db.marketing_consents.update_one({"_id": rec["_id"]}, {"$inc": {"attempts": 1}})
+        raise HTTPException(status_code=400, detail=L("verify_invalid"))
+    ip = (request.client.host if request.client else "unknown")
+    now = datetime.now(timezone.utc).isoformat()
     await db.users.update_one(
         {"user_id": user["user_id"]},
-        {"$set": {"consent_analytics": body.consent_analytics,
-                  "consent_product": body.consent_product,
-                  "consent_marketing": body.consent_marketing,
-                  "consents_updated_at": datetime.now(timezone.utc).isoformat()}},
+        {"$set": {"consent_marketing": True,
+                  "consent_marketing_confirmed_at": now,
+                  "consent_marketing_ip": ip,
+                  "consents_updated_at": now}},
     )
+    await db.marketing_consents.delete_many({"user_id": user["user_id"]})
     fresh = await db.users.find_one({"user_id": user["user_id"]}, {"_id": 0})
     return {"user": public_user(fresh)}
+
+
+@api.post("/auth/resend-marketing-code")
+async def resend_marketing_code(body: ResendVerificationBody, user: dict = Depends(get_current_user)):
+    """Resend the marketing-consent confirmation code, mirroring
+    resend_verification (same 3-per-15min rate limit)."""
+    if user.get("consent_marketing", False):
+        return {"ok": True}
+    if _rate_limited(f"mktg:{user['user_id']}", 3, 900):
+        raise HTTPException(status_code=429, detail=L("rate_limited"))
+    await _issue_marketing_code(user["user_id"], user["email"], body.lang or "en")
+    return {"ok": True, "message": L("verify_sent")}
 
 
 # ----------------------------- Curriculum -----------------------------

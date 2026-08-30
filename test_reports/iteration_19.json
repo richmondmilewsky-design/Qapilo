@@ -1,0 +1,34 @@
+{
+  "summary": "Retest of the 2 regression fixes reported in iteration_18.json for the Marketing Consent Double Opt-in feature. Both fixes verified working via backend pytest (existing test_iteration_18_marketing_optin.py, 14/14 passed) and live browser automation on the deployed Expo web preview (logged in as demo@tradequest.app, navigated to Settings > Consents).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration_18_marketing_optin.py",
+    "/app/test_reports/pytest/pytest_iteration_19_retest.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "public_user() in server.py now includes consent_marketing_confirmed_at and consent_marketing_ip in its returned dict (verified via code view lines 311-312) and via pytest TestConfirmMarketingHappyPath.test_confirm_with_known_code which asserts both keys are present in the confirm-marketing-consent response after a controlled sha256('123456') code override.",
+    "settings.tsx ConsentRow for marketing now binds value={consents.marketing || marketingPending}, so the switch correctly renders ON during the pending window. toggleConsent() sends the PATCH with the new intended value regardless of prior server truth, so tapping the (visually ON) switch while pending now correctly PATCHes {consent_marketing:false, ...} and the pending box is hidden immediately client-side (setMarketingPending(false)) with no code entry required -- confirmed via live network capture."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (14/14 pytest)", "frontend": "100% (both regression fixes verified live)"},
+  "seed_data_creation": "One disposable TEST_cleanup_check_* user created and deleted via signup+DELETE /api/account to confirm test harness cleanliness; no leftover test data. Backend pytest module fixtures self-clean via DELETE /api/account in teardown.",
+  "verification_details": {
+    "fix_1_backend_response_fields": "PASS - pytest test_confirm_with_known_code: after POST /api/auth/confirm-marketing-consent with correct code, response user object contains non-null consent_marketing_confirmed_at and consent_marketing_ip; marketing_consents doc deleted after confirm as expected.",
+    "fix_2_frontend_switch_state": "PASS - Live browser test: (1) toggled marketing ON -> switch rendered ON (green) + marketing-pending-box/marketing-code-input/marketing-confirm/marketing-resend all appeared; (2) tapped the switch again while pending -> network request captured was PATCH /api/auth/consents body {consent_analytics:false,consent_product:false,consent_marketing:false} -> pending box disappeared immediately, switch reverted to OFF, no dialog or code prompt shown.",
+    "quick_regression": "PASS - consent_analytics/consent_product toggle_immediate test passed (pytest); marketing_false_immediate_no_pending passed; wrong-code 400 + attempts increment passed; 6-attempt rate limit -> 429 passed; resend rate limit (3/900s) -> 429 passed; existing /auth/verify-email wrong-code-400 and /auth/resend-verification and email_verifications collection independence all passed (regression untouched)."
+  },
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Both previously reported bugs (public_user missing consent_marketing_confirmed_at/ip, and switch/pending decoupling preventing opt-out while pending) are now fixed and verified both at the API level and via live UI interaction with network capture. No new issues found in this focused retest. Full happy-path double opt-in flow (entering the real emailed code, resend button UI click) was not re-exercised live in the browser this round since it was already verified passing in iteration_18 and is unrelated to these 2 fixes; only the toggle ON/pending/OFF-while-pending interaction and the confirm response fields were the scope of this retest.",
+  "rca_of_issue": "N/A - this iteration is a fix verification pass, not a new bug investigation. See iteration_18.json rca_of_issue for the original root cause analysis of both bugs."
+}

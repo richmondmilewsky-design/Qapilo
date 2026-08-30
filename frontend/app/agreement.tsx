@@ -38,6 +38,8 @@ export default function Agreement() {
           accepted_disclaimer: disclaimer,
           consent_analytics: analytics,
           consent_product: product,
+          // Marketing opt-in is double opt-in server-side: res.user.consent_marketing
+          // may still be false here until the user confirms an emailed code in Settings.
           consent_marketing: marketing,
         },
       });

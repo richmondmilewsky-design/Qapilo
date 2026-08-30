@@ -1,0 +1,45 @@
+{
+  "summary": "Tested the new marketing-consent double opt-in feature (backend + frontend) built on top of the existing email-verification pattern. Backend: 13/14 pytest cases passed covering PATCH /auth/consents, POST /auth/accept-terms, POST /auth/confirm-marketing-consent, POST /auth/resend-marketing-code, plus a regression check on the untouched /auth/verify-email flow. Frontend: verified Settings screen shows the pending confirmation box with all required testIDs, wrong-code inline error, and correct EN/DE localization. Found 1 backend response-contract bug and 1 frontend UX/logic gap around turning marketing consent OFF while pending.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "POST /api/auth/confirm-marketing-consent",
+        "issue": "public_user() (server.py ~line 283) does not include 'consent_marketing_confirmed_at' or 'consent_marketing_ip' in its whitelist. These fields ARE correctly written to MongoDB on successful confirmation (verified via code review of the update_one call), but the API response to the client never exposes them, violating the review-spec requirement that the response user object gain these two fields. Fix: add both keys to the dict returned by public_user()."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Settings > Receive marketing emails toggle > turn OFF while pending",
+        "issue": "The ConsentRow switch value is bound to `!!user?.consent_marketing`, which stays FALSE for the entire double-opt-in pending window by design. Because of this the switch always renders in the 'off' visual position while pending, and the separate `marketingPending` local state (controlling the pending box) is fully decoupled from the switch's bound value. Result (confirmed via network capture): tapping the marketing switch a second time while a confirmation is already pending sends request body `{consent_marketing:true}` again (re-issuing a fresh code) instead of `{consent_marketing:false}`. There is currently NO way for the user to actually cancel / opt back out while pending through this switch, which breaks the requirement 'Toggling the marketing switch OFF (when already on/pending) should work instantly without any dialog or code entry' — that scenario is unreachable via the current UI.",
+        "affected_testIDs": ["consent-marketing", "marketing-pending-box"]
+      }
+    ],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration_18_marketing_optin.py",
+    "/app/test_reports/pytest/pytest_iteration_18.xml"
+  ],
+  "action_items": [
+    "Add consent_marketing_confirmed_at and consent_marketing_ip to the public_user() whitelist so the confirm-marketing-consent response actually includes them (DB write is already correct; only the response projection is missing).",
+    "Fix Settings marketing toggle so a user CAN cancel/turn off a pending marketing consent: either (a) derive the switch's displayed value from `consents.marketing || marketingPending` so a subsequent tap while pending sends consent_marketing:false and cancels immediately, or (b) add an explicit 'Cancel' action inside the pending box that PATCHes consent_marketing:false.",
+    "No action needed — verified working: analytics/product immediate toggling, marketing-off-when-already-false immediate opt-out, wrong-code 400 + attempts increment, 6-attempt rate limit -> 429, 3-per-900s resend rate limit -> 429, happy-path DB transition (marketing_consents doc created on opt-in and deleted on confirm, consent_marketing becomes true in DB), EN/DE localization of all new consent.* strings, and the untouched /auth/verify-email + /auth/resend-verification + email_verifications collection (regression pass)."
+  ],
+  "critical_code_review_comments": [
+    "server.py: _issue_marketing_code / confirm_marketing_consent / resend_marketing_code correctly mirror the existing email-verification pattern (own collection, own rate-limit keys, same attempt/expiry logic) — clean separation from email_verifications as required by spec.",
+    "public_user() whitelist gap (see backend_issues) is the only material backend defect found; the double-opt-in state machine (pending -> confirm -> delete doc) is otherwise implemented correctly.",
+    "Frontend settings.tsx toggleConsent()/confirmMarketing()/resendMarketing() logic is clean, but the switch-value/pending-state decoupling is a real gap that undermines the 'user can withdraw consent anytime' GDPR requirement during the pending window."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "93% (13/14 pytest cases passed)", "frontend": "core double opt-in flow + localization verified; 1 integration gap found"},
+  "seed_data_creation": "Disposable TEST_ prefixed users created via /api/auth/signup for pytest, cleaned up via DELETE /api/account in fixture teardown. One controlled manual update of marketing_consents.code_hash to sha256('123456') was done on a disposable happy-path test user to validate the correct-code path; that user (and its consent doc) was deleted immediately after via DELETE /api/account — no manual test data left behind. One UI test user (TEST_ui_mktg_6bc3a8da@example.com) was left in the DB for the main agent to re-verify fixes; safe to delete.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend double opt-in state machine is solid except the public_user() response-field gap. The more important issue is the frontend switch/pending decoupling — after a fix, retest: (1) toggle marketing ON -> pending box appears with fresh code; (2) toggle switch again while pending -> should immediately PATCH consent_marketing:false and hide the pending box with NO new code issuance; (3) confirm-marketing-consent response now includes consent_marketing_confirmed_at/consent_marketing_ip.",
+  "rca_of_issue": "Frontend bug RCA: `consents.marketing` derives strictly from `user.consent_marketing` (server truth, stays false during pending), while `marketingPending` is a separate local UI state set only from the previous PATCH response's `consent_marketing_pending` flag. Since the Switch's displayed value never reflects 'on' during pending, every onValueChange fires with value=true (toggling from the perceived-off position), so toggleConsent() always PATCHes consent_marketing:true regardless of user intent to cancel — making an opt-out-while-pending action unreachable."
+}

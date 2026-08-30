@@ -85,6 +85,35 @@ _T = {
             "btn": None,
         },
     },
+    "marketing_confirmation": {
+        "en": {
+            "subject": "Confirm your Qapilo marketing emails",
+            "p": [
+                "You asked to receive occasional marketing emails and newsletters from Qapilo. This confirms that request (double opt-in) — no marketing has been sent yet.",
+                "Enter this 6-digit code in the app: {code}",
+                "This code expires in {ttl} minutes. If you didn't request this, you can ignore this email and no marketing emails will be sent.",
+            ],
+            "btn": None,
+        },
+        "de": {
+            "subject": "Bestätige deine Qapilo-Marketing-E-Mails",
+            "p": [
+                "Du hast darum gebeten, gelegentlich Marketing-E-Mails und Newsletter von Qapilo zu erhalten. Dies bestätigt diese Anfrage (Double-Opt-in) — es wurde noch kein Marketing versendet.",
+                "Gib diesen 6-stelligen Code in der App ein: {code}",
+                "Dieser Code läuft in {ttl} Minuten ab. Falls du das nicht angefordert hast, kannst du diese E-Mail ignorieren — es werden keine Marketing-E-Mails versendet.",
+            ],
+            "btn": None,
+        },
+        "es": {
+            "subject": "Confirma tus correos de marketing de Qapilo",
+            "p": [
+                "Pediste recibir correos de marketing y boletines ocasionales de Qapilo. Esto confirma esa solicitud (doble consentimiento) — todavía no se ha enviado ningún correo de marketing.",
+                "Introduce este código de 6 dígitos en la app: {code}",
+                "Este código caduca en {ttl} minutos. Si no solicitaste esto, puedes ignorar este correo: no se enviará ningún correo de marketing.",
+            ],
+            "btn": None,
+        },
+    },
     "password_reset": {
         "en": {
             "subject": "Reset your Qapilo password",

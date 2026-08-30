@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, Modal, ActivityIndicator, Alert, Linking, Platform, Switch } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Modal, ActivityIndicator, Alert, Linking, Platform, Switch, TextInput } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -60,10 +60,16 @@ export default function SettingsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { logout, user, setUser } = useAuth();
-  const { t, openPicker } = useI18n();
+  const { t, openPicker, locale } = useI18n();
   const [exporting, setExporting] = useState(false);
   const [exportText, setExportText] = useState("");
   const [savingConsent, setSavingConsent] = useState<string | null>(null);
+  const [marketingPending, setMarketingPending] = useState(false);
+  const [marketingCode, setMarketingCode] = useState("");
+  const [marketingBusy, setMarketingBusy] = useState(false);
+  const [marketingResendBusy, setMarketingResendBusy] = useState(false);
+  const [marketingErr, setMarketingErr] = useState("");
+  const [marketingMsg, setMarketingMsg] = useState("");
 
   const consents = {
     analytics: !!user?.consent_analytics,
@@ -74,6 +80,7 @@ export default function SettingsScreen() {
   const toggleConsent = async (key: "analytics" | "product" | "marketing", value: boolean) => {
     const next = { ...consents, [key]: value };
     setSavingConsent(key);
+    if (key === "marketing") { setMarketingErr(""); setMarketingMsg(""); }
     try {
       const res = await apiRequest<{ user: any }>("/auth/consents", {
         method: "PATCH",
@@ -84,10 +91,51 @@ export default function SettingsScreen() {
         },
       });
       setUser(res.user);
+      if (key === "marketing") {
+        if (value && res.user?.consent_marketing_pending) {
+          setMarketingPending(true);
+          setMarketingCode("");
+        } else {
+          setMarketingPending(false);
+        }
+      }
     } catch {
       Alert.alert(t("common.error"), t("consent.error"));
     } finally {
       setSavingConsent(null);
+    }
+  };
+
+  const confirmMarketing = async () => {
+    if (marketingCode.trim().length < 6) return;
+    setMarketingErr(""); setMarketingMsg("");
+    setMarketingBusy(true);
+    try {
+      const res = await apiRequest<{ user: any }>("/auth/confirm-marketing-consent", {
+        method: "POST",
+        body: { code: marketingCode.trim(), lang: locale },
+      });
+      setUser(res.user);
+      setMarketingPending(false);
+      setMarketingCode("");
+      setMarketingMsg(t("consent.marketingConfirmedMsg"));
+    } catch (e: any) {
+      setMarketingErr(e.message || t("consent.marketingConfirmError"));
+    } finally {
+      setMarketingBusy(false);
+    }
+  };
+
+  const resendMarketing = async () => {
+    setMarketingErr(""); setMarketingMsg("");
+    setMarketingResendBusy(true);
+    try {
+      await apiRequest("/auth/resend-marketing-code", { method: "POST", body: { lang: locale } });
+      setMarketingMsg(t("verify.resent"));
+    } catch (e: any) {
+      setMarketingErr(e.message || t("common.somethingWrong"));
+    } finally {
+      setMarketingResendBusy(false);
     }
   };
 
@@ -173,8 +221,32 @@ export default function SettingsScreen() {
         <View style={styles.card}>
           <ConsentRow testID="consent-analytics" label={t("agree.optAnalytics")} desc={t("agree.optAnalyticsDesc")} value={consents.analytics} loading={savingConsent === "analytics"} onToggle={(v: boolean) => toggleConsent("analytics", v)} />
           <ConsentRow testID="consent-product" label={t("agree.optProduct")} desc={t("agree.optProductDesc")} value={consents.product} loading={savingConsent === "product"} onToggle={(v: boolean) => toggleConsent("product", v)} />
-          <ConsentRow testID="consent-marketing" label={t("agree.optMarketing")} desc={t("agree.optMarketingDesc")} value={consents.marketing} loading={savingConsent === "marketing"} onToggle={(v: boolean) => toggleConsent("marketing", v)} last />
+          <ConsentRow testID="consent-marketing" label={t("agree.optMarketing")} desc={t("agree.optMarketingDesc")} value={consents.marketing || marketingPending} loading={savingConsent === "marketing"} onToggle={(v: boolean) => toggleConsent("marketing", v)} last />
         </View>
+        {marketingPending && (
+          <View style={styles.marketingPendingBox} testID="marketing-pending-box">
+            <Text style={styles.marketingPendingTitle}>{t("consent.marketingPendingTitle")}</Text>
+            <Text style={styles.marketingPendingMsg}>{t("consent.marketingPendingMsg")}</Text>
+            <TextInput
+              testID="marketing-code-input"
+              value={marketingCode}
+              onChangeText={(v) => setMarketingCode(v.replace(/[^0-9]/g, ""))}
+              keyboardType="number-pad"
+              maxLength={6}
+              placeholder={t("consent.marketingCodePlaceholder")}
+              placeholderTextColor={colors.muted}
+              style={styles.marketingInput}
+            />
+            {marketingErr ? <Text style={styles.marketingErr}>{marketingErr}</Text> : null}
+            {marketingMsg ? <Text style={styles.marketingMsg}>{marketingMsg}</Text> : null}
+            <Pressable testID="marketing-confirm" onPress={confirmMarketing} style={styles.marketingBtn}>
+              {marketingBusy ? <ActivityIndicator size="small" color={colors.onBrand} /> : <Text style={styles.marketingBtnText}>{t("consent.marketingConfirmBtn")}</Text>}
+            </Pressable>
+            <Pressable testID="marketing-resend" onPress={resendMarketing} style={{ alignSelf: "center", marginTop: spacing.sm }}>
+              <Text style={styles.marketingResend}>{marketingResendBusy ? "…" : t("consent.marketingResendBtn")}</Text>
+            </Pressable>
+          </View>
+        )}
         <Text style={styles.consentNote}>{t("consent.reqNote")}</Text>
 
         <Text style={styles.groupLabel}>{t("settings.preferences")}</Text>
@@ -216,6 +288,15 @@ const styles = StyleSheet.create({
   consentLabel: { fontFamily: fonts.bodySemi, fontSize: 15, color: colors.onSurface },
   consentDesc: { fontFamily: fonts.body, fontSize: 12, color: colors.muted, marginTop: 2, lineHeight: 17 },
   consentNote: { fontFamily: fonts.body, fontSize: 12, color: colors.muted, marginTop: spacing.sm, lineHeight: 17 },
+  marketingPendingBox: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginTop: spacing.sm },
+  marketingPendingTitle: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.onSurface, marginBottom: 4 },
+  marketingPendingMsg: { fontFamily: fonts.body, fontSize: 12, color: colors.muted, lineHeight: 17, marginBottom: spacing.sm },
+  marketingInput: { backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.md, height: 48, fontFamily: fonts.bodySemi, fontSize: 18, letterSpacing: 4, textAlign: "center", color: colors.onSurface },
+  marketingErr: { fontFamily: fonts.bodyMed, fontSize: 12, color: colors.error, marginTop: spacing.sm },
+  marketingMsg: { fontFamily: fonts.bodyMed, fontSize: 12, color: colors.brand, marginTop: spacing.sm },
+  marketingBtn: { backgroundColor: colors.brand, borderRadius: radius.md, paddingVertical: spacing.sm, alignItems: "center", marginTop: spacing.sm, minHeight: 44, justifyContent: "center" },
+  marketingBtnText: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.onBrand },
+  marketingResend: { fontFamily: fonts.bodySemi, fontSize: 13, color: colors.brand, textAlign: "center" },
   contactEmail: { fontFamily: fonts.body, fontSize: 12, color: colors.muted },
   modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.75)", justifyContent: "flex-end" },
   modalCard: { backgroundColor: colors.elevated, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, padding: spacing.lg, maxHeight: "80%" },
