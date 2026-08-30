@@ -1,0 +1,24 @@
+{
+  "summary": "Backend-only test of TUTOR_SYSTEM prompt-only update in /app/backend/server.py (plain 10-year-old-level language + inline parenthetical jargon definitions in EN/DE/ES). Wrote 9 pytest cases in /app/backend/tests/test_iteration_22_tutor_jargon_prompt.py making real Claude Sonnet 4.6 calls via EMERGENT_LLM_KEY to /api/tutor/chat. All 9 passed (100%). Manually inspected raw replies for 'What is a dividend?' in EN/DE/ES: each contains a plain everyday analogy, uses the term (dividend/Dividende/dividendo) followed immediately by an inline parenthetical plain-language definition IN THE CORRECT LANGUAGE (not English), no separate glossary section, and the localized disclaimer appears exactly once at the end. Regression verified: advice-refusal (is_advice_seeking/_ADVICE_RE) still triggers correctly for 'Should I buy Tesla stock right now?' and 'What should I invest my $10,000 in?' with the unchanged ADVICE_REFUSAL text; disclaimer (append_disclaimer) appended exactly once per reply in EN and DE, no duplication; replies stayed concise (<=7 paragraphs, <3000 chars); tutor correctly declined to invent a live gold price when none was provided (LIVE DATA context absent).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {},
+  "test_report_links": [
+    "/app/backend/tests/test_iteration_22_tutor_jargon_prompt.py",
+    "/app/test_reports/pytest/pytest_results_iter22.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "TUTOR_SYSTEM prompt change looks well-scoped and correctly worded; no code logic elsewhere was touched, matching the stated intent.",
+    "server.py remains a single ~1956 line file; consider splitting into routers eventually (not urgent, previously flagged)."
+  ],
+  "updated_files": ["/app/backend/tests/test_iteration_22_tutor_jargon_prompt.py"],
+  "success_rate": {"backend": "100% (9/9)", "frontend": "not tested (backend-only task)"},
+  "seed_data_creation": "Created ephemeral test users (emails prefixed TEST_tutor_) via signup for JWT auth; no manual cleanup needed as this is disposable auth-only data with no other side effects beyond chat_messages entries.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "TUTOR_SYSTEM prompt-only change fully verified for all 3 languages (EN/DE/ES): inline parenthetical jargon definitions confirmed present and localized (not English leaking into DE/ES), simple/plain language style confirmed via manual reply inspection, no glossary-style sections. All regression areas (advice-refusal patterns, disclaimer append-once logic, reply conciseness, no invented live price data) remain functionally unchanged and passing. No further testing needed for this feature unless TUTOR_SYSTEM or related endpoint logic changes again.",
+  "rca_of_issue": "N/A - no bugs found. Prompt update behaves exactly as specified."
+}
