@@ -395,6 +395,7 @@ async def ensure_indexes():
     await db.password_resets.create_index("expires_at", expireAfterSeconds=0)
     await db.email_verifications.create_index("expires_at", expireAfterSeconds=0)
     await db.marketing_consents.create_index("expires_at", expireAfterSeconds=0)
+    await db.lesson_memory.create_index([("user_id", 1), ("lesson_id", 1)], unique=True)
     await db.email_events.create_index(
         "created_at", expireAfterSeconds=EMAIL_LOG_RETENTION_DAYS * 86400)
     await db.support_requests.create_index(
@@ -874,6 +875,23 @@ async def complete_lesson(lesson_id: str, body: CompleteBody, user: dict = Depen
 
     # XP: full reward first time, quarter reward for replays. Scale by accuracy.
     accuracy = body.correct / body.total if body.total else 0
+
+    # Lightweight heuristic half-life memory model (Duolingo HLR-inspired, fixed
+    # heuristics, no ML). Pure side-effect write — does not affect the response.
+    mem = await db.lesson_memory.find_one({"user_id": user["user_id"], "lesson_id": lesson_id})
+    now_dt = datetime.now(timezone.utc)
+    if not mem:
+        new_half_life = 1.0
+    elif accuracy >= 0.6:
+        new_half_life = min(60.0, mem.get("half_life_days", 1.0) * 2)
+    else:
+        new_half_life = max(0.5, mem.get("half_life_days", 1.0) / 2)
+    await db.lesson_memory.update_one(
+        {"user_id": user["user_id"], "lesson_id": lesson_id},
+        {"$set": {"half_life_days": new_half_life, "last_seen_at": now_dt}},
+        upsert=True,
+    )
+
     base_xp = l["xp"]
     earned_xp = round(base_xp * (0.5 + 0.5 * accuracy))
     if not first_time:
@@ -959,10 +977,37 @@ async def practice_session(lang: str = "en", user: dict = Depends(get_current_us
         max_tier = max(max_tier, LESSON_MAP.get(lid, {}).get("tier", 1))
     max_tier = min(5, max_tier)
 
+    # Heuristic half-life memory model: lessons the learner is likely to have
+    # forgotten (low recall probability) are prioritized before the tier pool.
+    due_lessons = []
+    if completed:
+        now_dt = datetime.now(timezone.utc)
+        mem_records = await db.lesson_memory.find(
+            {"user_id": user["user_id"], "lesson_id": {"$in": list(completed)}}
+        ).to_list(1000)
+        scored = []
+        for m in mem_records:
+            last_seen = m.get("last_seen_at")
+            if last_seen is None:
+                continue
+            if last_seen.tzinfo is None:
+                last_seen = last_seen.replace(tzinfo=timezone.utc)
+            half_life = max(0.5, m.get("half_life_days", 1.0))
+            days_elapsed = max(0.0, (now_dt - last_seen).total_seconds() / 86400)
+            p = 2 ** (-days_elapsed / half_life)
+            if p < 0.7:
+                scored.append((p, m["lesson_id"]))
+        scored.sort(key=lambda x: x[0])
+        due_lessons = [lid for _, lid in scored if lid in LESSON_MAP]
+
     pool = [lid for lid, l in LESSON_MAP.items() if l["tier"] <= max_tier] or list(LESSON_MAP.keys())
     random.shuffle(pool)
+    # Due-for-review lessons first (most-forgotten first), then the existing
+    # tier-based pool exactly as before (skipping ids already covered above).
+    due_set = set(due_lessons)
+    ordered_pool = due_lessons + [lid for lid in pool if lid not in due_set]
     questions, used, tiers_used = [], set(), []
-    for lid in pool:
+    for lid in ordered_pool:
         l = LESSON_MAP[lid]
         qs = loc_lesson_full(l, lang)["questions"]
         if not qs:

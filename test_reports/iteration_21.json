@@ -1,0 +1,22 @@
+{
+  "summary": "Backend-only test of the heuristic half-life memory model added to /app/backend/server.py (complete_lesson + practice_session). Wrote and ran 8 pytest cases in /app/backend/tests/test_iteration_21_half_life_memory.py covering: lesson_memory doc creation on first completion (half_life_days=1.0), doubling on high accuracy (capped at 60.0), halving on low accuracy (floored at 0.5), unchanged complete_lesson response shape, /practice prioritization of a simulated 'due' lesson (stale last_seen_at -> recall p<0.7), /practice for brand-new users (unchanged shape/behavior), graceful handling of malformed lesson_memory referencing a non-existent lesson_id, and /practice/complete regression. All 8 tests passed (100%). Fixed one test helper bug (used wrong endpoint /api/learn instead of /api/curriculum) during setup; no server.py code changes were needed. Test-created users and lesson_memory docs (identified via 'hlm' in email) were cleaned up from MongoDB after testing.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {},
+  "test_report_links": ["/app/backend/tests/test_iteration_21_half_life_memory.py", "/app/test_reports/pytest/pytest_results_iter21.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is now ~1944 lines in a single file; consider splitting into routers (auth, curriculum, practice, tutor, etc.) for maintainability, though not urgent.",
+    "half-life update in complete_lesson uses find_one then update_one with upsert (2 round trips) instead of a single findAndModify; not a bug, just a minor efficiency note.",
+    "lesson_memory correctly excludes MongoDB _id when read (only half_life_days/last_seen_at consumed), no ObjectId serialization issue found since this data never returned in an API response."
+  ],
+  "updated_files": ["/app/backend/tests/test_iteration_21_half_life_memory.py"],
+  "success_rate": {"backend": "100% (8/8)", "frontend": "not tested (backend-only task)"},
+  "seed_data_creation": "Created and cleaned up test users (emails containing 'hlm') and their lesson_memory docs via signup + direct Mongo cleanup after test run.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Half-life memory model (lesson_memory collection) fully verified: create/double/halve/cap/floor logic correct, /practice prioritizes due lessons correctly (verified due lesson's question appears first in list), new-user and malformed-data edge cases handled gracefully with no crashes, and /practice/complete + complete_lesson response shapes unaffected. No further testing needed for this feature unless server.py logic changes again.",
+  "rca_of_issue": "N/A - no bugs found. Implementation matches spec exactly: half_life_days starts at 1.0, doubles (cap 60.0) on accuracy>=0.6, halves (floor 0.5) on accuracy<0.6; recall probability p=2^(-days_elapsed/half_life) used to prioritize due lessons (p<0.7 threshold) ahead of the tier-based random pool in /practice."
+}
