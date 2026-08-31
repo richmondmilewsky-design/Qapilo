@@ -220,12 +220,12 @@ export default function LearnScreen() {
   const showNudge = user.in_trial && user.trial_days_left <= 2 && !nudgeDismissed;
   let currentAssigned = false;
 
-  const totalPages = Math.max(1, Math.ceil(units.length / PAGE_SIZE));
+  const revealedMax = currentUnitIndex(units) + LOOKAHEAD;
+  const totalPages = Math.max(1, Math.ceil((revealedMax + 1) / PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
   const pageUnits = units.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
   const rangeStart = safePage * PAGE_SIZE + 1;
-  const rangeEnd = Math.min(units.length, safePage * PAGE_SIZE + PAGE_SIZE);
-  const revealedMax = currentUnitIndex(units) + LOOKAHEAD;
+  const rangeEnd = Math.min(revealedMax + 1, safePage * PAGE_SIZE + PAGE_SIZE);
   const goToPage = (p: number) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setPage(Math.max(0, Math.min(totalPages - 1, p)));
@@ -279,6 +279,8 @@ export default function LearnScreen() {
           paddingBottom: spacing.xxxl,
         }}
         showsVerticalScrollIndicator={false}
+        bounces={false}
+        overScrollMode="never"
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand} />
         }
@@ -370,29 +372,15 @@ export default function LearnScreen() {
 
         {pageUnits.map((unit, pi) => {
           const absIndex = safePage * PAGE_SIZE + pi;
-          const hidden = absIndex > revealedMax;
+          if (absIndex > revealedMax) return null;
           return (
           <View key={unit.id} style={styles.unit}>
             <View style={[styles.unitHeader, { borderLeftColor: unit.color }]}>
-              {hidden ? (
-                <>
-                  <Text style={[styles.tierLabel, { color: colors.muted }]}>
-                    {t("learn.level")} {unit.id.replace("u", "")}
-                  </Text>
-                  <View style={styles.lockedUnitRow}>
-                    <Ionicons name="lock-closed" size={18} color={colors.muted} />
-                    <Text style={styles.lockedUnitTitle}>{t("learn.locked")}</Text>
-                  </View>
-                </>
-              ) : (
-                <>
-                  <Text style={[styles.tierLabel, { color: unit.color }]}>
-                    {t("learn.level")} {unit.id.replace("u", "")} · {t(`tier.${unit.tier}` as any)}
-                  </Text>
-                  <Text style={styles.unitTitle}>{unit.title}</Text>
-                  <Text style={styles.unitSubtitle}>{unit.subtitle}</Text>
-                </>
-              )}
+              <Text style={[styles.tierLabel, { color: unit.color }]}>
+                {t("learn.level")} {unit.id.replace("u", "")} · {t(`tier.${unit.tier}` as any)}
+              </Text>
+              <Text style={styles.unitTitle}>{unit.title}</Text>
+              <Text style={styles.unitSubtitle}>{unit.subtitle}</Text>
             </View>
 
             {unit.lessons.map((lesson, i) => {
@@ -406,7 +394,6 @@ export default function LearnScreen() {
                   color={unit.color}
                   offset={offset}
                   isCurrent={isCurrent}
-                  hideLabel={hidden}
                   onPress={() => {
                     if (!lesson.unlocked) {
                       if (lesson.pro_locked) {
@@ -444,9 +431,11 @@ export default function LearnScreen() {
               onPress={() => goToPage(safePage + 1)}
               style={[styles.pagerNavBtn, safePage >= totalPages - 1 && styles.pagerBtnDisabled]}
             >
-              <Text style={[styles.pagerNavText, safePage >= totalPages - 1 && { color: colors.muted }]}>
-                {t("learn.level")} {Math.min(units.length, rangeEnd + 1)}–{Math.min(units.length, rangeEnd + PAGE_SIZE)}
-              </Text>
+              {safePage < totalPages - 1 && (
+                <Text style={styles.pagerNavText}>
+                  {t("learn.level")} {Math.min(revealedMax + 1, rangeEnd + 1)}–{Math.min(revealedMax + 1, rangeEnd + PAGE_SIZE)}
+                </Text>
+              )}
               <Ionicons name="chevron-forward" size={20} color={safePage >= totalPages - 1 ? colors.muted : colors.onSurface} />
             </Pressable>
           </View>
