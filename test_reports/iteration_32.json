@@ -1,0 +1,24 @@
+{
+  "summary": "Verified the small scoped fix on top of already-verified duel-sharing feature: (1) app.json scheme='qapilo' confirmed via code review. (2) Logged in as demo@tradequest.app, created a duel via Challenge-a-friend CTA, played through the 5-question duel, reached results view, tapped duel-share (testID duel-share), and intercepted the actual navigator.share() call in-browser to capture the real message content. Captured message exactly matches spec: plain-text fallback ('Open the app -> Challenge a friend -> Enter code: {duel_id}') followed by '\\n\\nqapilo://duel/{duel_id}'. No Metro/bundling errors observed; app loads and navigates correctly (onboarding -> auth -> Home -> duel creation -> results) with no regressions.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "app.json: scheme correctly set to 'qapilo' (was 'frontend' placeholder). slug remains 'frontend' which is unrelated to the scheme and does not need to change.",
+    "duel/[id].tsx onShare: message template `${t('duel.shareMessage')}${duel.duel_id}\\n\\nqapilo://duel/${duel.duel_id}` verified both via static code review and live runtime interception of navigator.share -- exact captured string: 'I challenge you to a Qapilo knowledge duel! Open the app -> Challenge a friend -> Enter code: 5422f725\\n\\nqapilo://duel/5422f725'. Contains both fallback instructions+code AND the deep link as required.",
+    "Deep link tap-through (qapilo://duel/{id} actually opening app to correct screen) is out of scope per task note -- cannot be tested in Expo web preview, requires native build."
+  ],
+  "updated_files": [],
+  "success_rate": { "backend": "N/A - not in scope", "frontend": "100% (all requested checks passed)" },
+  "seed_data_creation": "One duel created as demo@tradequest.app (duel_id 5422f725) during share-message verification test.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Scoped fix fully verified: app.json scheme=qapilo confirmed, share message format confirmed exact via runtime interception (fallback text + code + deep link), no regressions in login/duel-create/play/results flow, no bundling errors. Feature ready. Native-build-only deep link tap verification remains out of scope as expected.",
+  "rca_of_issue": "N/A - no bugs found."
+}

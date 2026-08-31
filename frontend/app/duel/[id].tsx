@@ -76,7 +76,9 @@ export default function DuelScreen() {
   const onShare = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
-      await Share.share({ message: `${t("duel.shareMessage")}${duel.duel_id}` });
+      await Share.share({
+        message: `${t("duel.shareMessage")}${duel.duel_id}\n\nqapilo://duel/${duel.duel_id}`,
+      });
     } catch {}
   };
 
