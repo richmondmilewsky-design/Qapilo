@@ -396,6 +396,8 @@ async def ensure_indexes():
     await db.email_verifications.create_index("expires_at", expireAfterSeconds=0)
     await db.marketing_consents.create_index("expires_at", expireAfterSeconds=0)
     await db.lesson_memory.create_index([("user_id", 1), ("lesson_id", 1)], unique=True)
+    await db.duels.create_index("duel_id", unique=True)
+    await db.duels.create_index("expires_at", expireAfterSeconds=0)
     await db.email_events.create_index(
         "created_at", expireAfterSeconds=EMAIL_LOG_RETENTION_DAYS * 86400)
     await db.support_requests.create_index(
@@ -1075,6 +1077,146 @@ async def practice_complete(body: PracticeBody, user: dict = Depends(get_current
         "user": public_user(updated),
     }
 
+
+# ----------------------------- Duels (async quiz challenges) -----------------------------
+class DuelCompleteBody(BaseModel):
+    correct: int
+    total: int
+
+
+def _build_duel_question_set(max_tier: int, lang: str):
+    """Draw a fixed 5-question set using the exact same tier/pool logic as
+    practice_session (same max_tier, same pool filtering, same dedup-by-text
+    approach), but also return the {lesson_id, tier, q_index} needed to
+    re-localize the same fixed set for any player/language later."""
+    pool = [lid for lid, l in LESSON_MAP.items() if l["tier"] <= max_tier] or list(LESSON_MAP.keys())
+    random.shuffle(pool)
+    items, questions, used = [], [], set()
+    for lid in pool:
+        l = LESSON_MAP[lid]
+        qs = loc_lesson_full(l, lang)["questions"]
+        if not qs:
+            continue
+        q_index = random.randrange(len(qs))
+        q = qs[q_index]
+        if q["q"] in used:
+            continue
+        used.add(q["q"])
+        items.append({"lesson_id": lid, "tier": l["tier"], "q_index": q_index})
+        questions.append({"q": q["q"], "options": q["options"], "answer": q["answer"],
+                          "explain": q["explain"], "tier": l["tier"]})
+        if len(questions) >= 5:
+            break
+    return items, questions
+
+
+@api.post("/duels")
+async def create_duel(lang: str = "en", user: dict = Depends(get_current_user)):
+    """Create a fixed 5-question async duel that can be shared via duel_id and
+    played later by a second user. No XP/reward coupling in this version."""
+    lang = norm_lang(lang)
+    completed = set(user.get("completed_lessons", []))
+    level = level_for_xp(user.get("xp", 0))
+    max_tier = min(5, max(1, 1 + level // 3))
+    for lid in completed:
+        max_tier = max(max_tier, LESSON_MAP.get(lid, {}).get("tier", 1))
+    max_tier = min(5, max_tier)
+
+    items, questions = _build_duel_question_set(max_tier, lang)
+
+    duel_id = secrets.token_hex(4)
+    now = datetime.now(timezone.utc)
+    await db.duels.insert_one({
+        "duel_id": duel_id,
+        "creator_user_id": user["user_id"],
+        "items": items,
+        "creator_result": None,
+        "opponent_user_id": None,
+        "opponent_result": None,
+        "created_at": now,
+        "expires_at": now + timedelta(days=7),
+    })
+    return {"duel_id": duel_id, "questions": questions}
+
+
+@api.get("/duels/{duel_id}")
+async def get_duel(duel_id: str, lang: str = "en", user: dict = Depends(get_current_user)):
+    """Fetch a duel's fixed question set, re-localized for the requesting
+    user's language, plus whatever results exist so far."""
+    lang = norm_lang(lang)
+    duel = await db.duels.find_one({"duel_id": duel_id}, {"_id": 0})
+    if not duel:
+        raise HTTPException(status_code=404, detail="Duel not found or expired")
+    exp = duel.get("expires_at")
+    if exp is not None and exp.tzinfo is None:
+        exp = exp.replace(tzinfo=timezone.utc)
+    if exp and exp < datetime.now(timezone.utc):
+        raise HTTPException(status_code=404, detail="Duel not found or expired")
+
+    questions = []
+    for item in duel.get("items", []):
+        l = LESSON_MAP.get(item["lesson_id"])
+        if not l:
+            continue
+        qs = loc_lesson_full(l, lang)["questions"]
+        qi = item.get("q_index", 0)
+        if qi >= len(qs):
+            continue
+        q = qs[qi]
+        questions.append({"q": q["q"], "options": q["options"], "answer": q["answer"],
+                          "explain": q["explain"], "tier": item.get("tier", 1)})
+
+    return {
+        "duel_id": duel["duel_id"],
+        "questions": questions,
+        "creator_user_id": duel["creator_user_id"],
+        "creator_result": duel.get("creator_result"),
+        "opponent_user_id": duel.get("opponent_user_id"),
+        "opponent_result": duel.get("opponent_result"),
+    }
+
+
+@api.post("/duels/{duel_id}/complete")
+async def complete_duel(duel_id: str, body: DuelCompleteBody, user: dict = Depends(get_current_user)):
+    """Store the calling user's result as creator_result (first player) or
+    opponent_result (second, different player). No XP/streak/badge side
+    effects in this version."""
+    duel = await db.duels.find_one({"duel_id": duel_id})
+    if not duel:
+        raise HTTPException(status_code=404, detail="Duel not found or expired")
+    exp = duel.get("expires_at")
+    if exp is not None and exp.tzinfo is None:
+        exp = exp.replace(tzinfo=timezone.utc)
+    if exp and exp < datetime.now(timezone.utc):
+        raise HTTPException(status_code=404, detail="Duel not found or expired")
+
+    now = datetime.now(timezone.utc)
+    result = {"correct": body.correct, "total": body.total, "completed_at": now.isoformat()}
+
+    if user["user_id"] == duel["creator_user_id"]:
+        if duel.get("creator_result"):
+            raise HTTPException(status_code=409, detail="You already played this duel")
+        await db.duels.update_one({"duel_id": duel_id}, {"$set": {"creator_result": result}})
+    else:
+        existing_result = duel.get("opponent_result")
+        existing_opponent_id = duel.get("opponent_user_id")
+        if existing_result and existing_opponent_id == user["user_id"]:
+            raise HTTPException(status_code=409, detail="You already played this duel")
+        if existing_result and existing_opponent_id != user["user_id"]:
+            raise HTTPException(status_code=409, detail="This duel already has two players")
+        await db.duels.update_one(
+            {"duel_id": duel_id},
+            {"$set": {"opponent_user_id": user["user_id"], "opponent_result": result}},
+        )
+
+    fresh = await db.duels.find_one({"duel_id": duel_id}, {"_id": 0})
+    return {
+        "duel_id": fresh["duel_id"],
+        "creator_user_id": fresh["creator_user_id"],
+        "creator_result": fresh.get("creator_result"),
+        "opponent_user_id": fresh.get("opponent_user_id"),
+        "opponent_result": fresh.get("opponent_result"),
+    }
 
 
 @api.get("/progress")
