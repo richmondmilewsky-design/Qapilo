@@ -73,8 +73,32 @@ export default function LearnScreen() {
   const [verifyErr, setVerifyErr] = useState("");
   const [verifyMsg, setVerifyMsg] = useState("");
   const [verifyDone, setVerifyDone] = useState(false);
+  const [joinOpen, setJoinOpen] = useState(false);
+  const [joinCode, setJoinCode] = useState("");
+  const [joinErr, setJoinErr] = useState("");
 
   const todayKey = new Date().toISOString().slice(0, 10);
+
+  const createDuel = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      const res = await apiRequest<{ duel_id: string }>(`/duels?lang=${locale}`, { method: "POST" });
+      router.push(`/duel/${res.duel_id}`);
+    } catch {}
+  };
+
+  const submitJoin = () => {
+    const code = joinCode.trim();
+    if (!code) {
+      setJoinErr(t("duel.joinPlaceholder"));
+      return;
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setJoinOpen(false);
+    setJoinCode("");
+    setJoinErr("");
+    router.push(`/duel/${code}`);
+  };
 
   const load = useCallback(async () => {
     try {
@@ -342,6 +366,28 @@ export default function LearnScreen() {
           <Ionicons name="chevron-forward" size={22} color={colors.muted} />
         </Pressable>
 
+        <Pressable
+          testID="duel-cta"
+          onPress={createDuel}
+          style={[styles.practiceCta, { marginBottom: spacing.sm }]}
+        >
+          <View style={styles.practiceIcon}>
+            <MaterialCommunityIcons name="sword-cross" size={24} color={colors.onBrand} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.practiceTitle}>{t("duel.homeTitle")}</Text>
+            <Text style={styles.practiceSub}>{t("duel.homeSub")}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={22} color={colors.muted} />
+        </Pressable>
+        <Pressable
+          testID="duel-join"
+          onPress={() => setJoinOpen(true)}
+          style={{ alignSelf: "center", marginBottom: spacing.xl }}
+        >
+          <Text style={styles.duelJoinLink}>{t("duel.joinLink")}</Text>
+        </Pressable>
+
         {totalPages > 1 && (
           <View style={styles.pager} testID="level-pager-top">
             <Pressable
@@ -558,6 +604,32 @@ export default function LearnScreen() {
               </>
             )}
             <Pressable onPress={() => setVerifyOpen(false)} style={{ alignSelf: "center", marginTop: spacing.md }}>
+              <Text style={styles.verifyClose}>{t("profile.close")}</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={joinOpen} transparent animationType="fade" onRequestClose={() => setJoinOpen(false)}>
+        <View style={styles.verifyBackdrop}>
+          <View style={styles.verifyCard} testID="duel-join-modal">
+            <Text style={styles.verifyTitle}>{t("duel.joinTitle")}</Text>
+            <Text style={styles.verifySubtitle}>{t("duel.joinSub")}</Text>
+            <TextInput
+              testID="duel-join-input"
+              value={joinCode}
+              onChangeText={(v) => { setJoinCode(v.trim()); setJoinErr(""); }}
+              autoCapitalize="none"
+              autoCorrect={false}
+              placeholder={t("duel.joinPlaceholder")}
+              placeholderTextColor={colors.muted}
+              style={styles.verifyInput}
+            />
+            {joinErr ? <Text style={styles.verifyErr}>{joinErr}</Text> : null}
+            <Pressable testID="duel-join-submit" onPress={submitJoin} style={styles.verifyBtn}>
+              <Text style={styles.verifyBtnText}>{t("duel.joinSubmit")}</Text>
+            </Pressable>
+            <Pressable onPress={() => setJoinOpen(false)} style={{ alignSelf: "center", marginTop: spacing.md }}>
               <Text style={styles.verifyClose}>{t("profile.close")}</Text>
             </Pressable>
           </View>
@@ -838,6 +910,7 @@ const styles = StyleSheet.create({
   },
   practiceTitle: { fontFamily: fonts.display, fontSize: 20, color: colors.onSurface },
   practiceSub: { fontFamily: fonts.body, fontSize: 12, color: colors.muted, marginTop: 1 },
+  duelJoinLink: { fontFamily: fonts.bodySemi, fontSize: 13, color: colors.brand },
   nudge: {
     flexDirection: "row",
     alignItems: "center",
