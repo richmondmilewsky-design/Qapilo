@@ -23,7 +23,6 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useI18n();
   const [badges, setBadges] = useState<Badge[]>([]);
-  const [total, setTotal] = useState(15);
   const [watchlist, setWatchlist] = useState<WatchStock[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -35,7 +34,6 @@ export default function ProfileScreen() {
         apiRequest<{ stocks: WatchStock[] }>("/stocks"),
       ]);
       setBadges(prog.badges);
-      setTotal(prog.total_lessons);
       setWatchlist(stocks.stocks.filter((s) => s.in_watchlist));
     } catch {}
   }, []);
@@ -62,7 +60,7 @@ export default function ProfileScreen() {
     { icon: "flash", label: t("profile.totalXp"), value: user.xp, color: colors.brand },
     { icon: "fire", label: t("profile.streak"), value: user.streak, color: colors.amber },
     { icon: "trending-up", label: t("profile.levelStat"), value: user.level, color: colors.brand },
-    { icon: "check-circle", label: t("profile.lessons"), value: `${user.completed_lessons.length}/${total}`, color: colors.brand },
+    { icon: "check-circle", label: t("profile.lessons"), value: user.completed_lessons.length, color: colors.brand },
   ];
 
   return (
