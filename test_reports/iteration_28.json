@@ -1,0 +1,37 @@
+{
+  "summary": "Tested new AI Tutor follow-up question suggestions feature (POST /api/tutor/chat 'follow_up_questions' field) end-to-end via real LLM calls (backend pytest) and live UI (Playwright, mobile viewport). Created /app/backend/tests/test_iteration_28_tutor_followups.py (8 tests): normal-answer followups clean/well-formed in EN/DE/ES, advice-refusal always [], regression on /tutor/history and /tutor/status. All 8/8 passed. Frontend: logged in as demo@tradequest.app, navigated to AI Tutor tab, verified empty-state SUGGESTIONS chips (4) unaffected, sent a normal question -> 3 tappable follow-up chips rendered below the latest assistant bubble reusing the same suggestion-chip style, chips disappeared immediately while the next message was sending (0 visible during send), and correctly moved to the new latest assistant message after the 2nd reply (old chips gone, 3 new ones shown, only 1 set of chips visible at any time). Tapping a follow-up chip correctly triggered an immediate send() of that exact text. Advice-seeking question ('Should I buy Tesla stock right now?') correctly rendered 0 follow-up chips and the refusal text was unchanged.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "POST /api/tutor/chat (advice-refusal path)",
+        "issue": "Pre-existing (not introduced by this feature, previously flagged in iteration_27): static ADVICE_REFUSAL constant contains raw Markdown italic markers (*about*, _..._) that render as literal asterisks/underscores in the frontend bubble since it bypasses the LLM's no-Markdown instruction. Confirmed still visible in UI screenshot during this test. Out of scope for this task but still unresolved."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration_28_tutor_followups.py",
+    "/app/test_reports/pytest/pytest_iteration_28.xml"
+  ],
+  "action_items": [
+    "Optional/carry-over from iteration_27 (not part of this task): strip raw Markdown (* and _ wrapping) from the static ADVICE_REFUSAL dict in all 3 languages so refusal text is visually consistent with the no-Markdown policy."
+  ],
+  "critical_code_review_comments": [
+    "server.py tutor_chat correctly partitions raw_reply on '===FOLLOWUPS===' marker, caps follow-up lines at 3, filters empty lines, and passes only answer_part through append_disclaimer -- verified no marker leakage into 'reply' or into follow_up_questions strings across EN/DE/ES via live LLM calls.",
+    "Advice-refusal early-return branch always returns follow_up_questions: [] as required; refusal behavior/text unchanged.",
+    "chat_messages persistence unaffected -- /tutor/history documents contain only role/content/created_at, no follow_up_questions field stored, no marker text leaked into stored content.",
+    "Frontend tutor.tsx correctly scopes chip rendering to isLastAssistant && !sending && followUps.length, reusing styles.suggestion/suggestionText -- verified visually identical to empty-state chips and correctly hidden/moved across turns."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (8/8)", "frontend": "100% (all manual flows verified working)"},
+  "seed_data_creation": "Ephemeral TEST_followup_* signup users created for backend test auth tokens; no persistent seed data.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Follow-up question suggestion feature (backend field + frontend chips) is fully verified working end-to-end with real LLM calls in EN/DE/ES, including advice-refusal always empty and chip repositioning/disappearance-during-send UI behavior. Only remaining known issue is the pre-existing (iteration_27) raw-Markdown ADVICE_REFUSAL constant, unrelated to this feature."
+}

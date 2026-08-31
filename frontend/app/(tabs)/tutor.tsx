@@ -23,7 +23,7 @@ import { colors, fonts, radius, spacing } from "@/src/theme/theme";
 
 const AI_NOTICE_KEY = "qapilo_ai_notice_ack";
 
-type Msg = { role: "user" | "assistant"; content: string };
+type Msg = { role: "user" | "assistant"; content: string; followUps?: string[] };
 
 
 export default function TutorScreen() {
@@ -83,11 +83,11 @@ export default function TutorScreen() {
     setSending(true);
     scrollToEnd();
     try {
-      const res = await apiRequest<{ reply: string; remaining: number | null }>("/tutor/chat", {
+      const res = await apiRequest<{ reply: string; remaining: number | null; follow_up_questions: string[] }>("/tutor/chat", {
         method: "POST",
         body: { message: msg, lang: locale },
       });
-      setMessages((m) => [...m, { role: "assistant", content: res.reply }]);
+      setMessages((m) => [...m, { role: "assistant", content: res.reply, followUps: res.follow_up_questions }]);
       setRemaining(res.remaining);
       scrollToEnd();
     } catch (e: any) {
@@ -167,18 +167,38 @@ export default function TutorScreen() {
               </View>
             </View>
           }
-          renderItem={({ item }) => (
-            <View
-              testID={`chat-msg-${item.role}`}
-              style={[styles.bubbleRow, item.role === "user" ? styles.rowRight : styles.rowLeft]}
-            >
-              <View style={[styles.bubble, item.role === "user" ? styles.userBubble : styles.botBubble]}>
-                <Text style={[styles.bubbleText, item.role === "user" && { color: colors.onBrand }]}>
-                  {item.content}
-                </Text>
+          renderItem={({ item, index }) => {
+            const isLastAssistant = item.role === "assistant" && index === messages.length - 1;
+            return (
+              <View>
+                <View
+                  testID={`chat-msg-${item.role}`}
+                  style={[styles.bubbleRow, item.role === "user" ? styles.rowRight : styles.rowLeft]}
+                >
+                  <View style={[styles.bubble, item.role === "user" ? styles.userBubble : styles.botBubble]}>
+                    <Text style={[styles.bubbleText, item.role === "user" && { color: colors.onBrand }]}>
+                      {item.content}
+                    </Text>
+                  </View>
+                </View>
+                {isLastAssistant && !sending && !!item.followUps?.length && (
+                  <View style={{ gap: spacing.sm, marginBottom: spacing.md }}>
+                    {item.followUps.map((f) => (
+                      <Pressable
+                        key={f}
+                        testID={`followup-${f.slice(0, 8)}`}
+                        onPress={() => send(f)}
+                        style={styles.suggestion}
+                      >
+                        <Text style={styles.suggestionText}>{f}</Text>
+                        <Ionicons name="arrow-forward" size={16} color={colors.muted} />
+                      </Pressable>
+                    ))}
+                  </View>
+                )}
               </View>
-            </View>
-          )}
+            );
+          }}
           ListFooterComponent={
             sending ? (
               <View style={[styles.bubbleRow, styles.rowLeft]}>

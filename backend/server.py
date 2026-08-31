@@ -1262,6 +1262,11 @@ TUTOR_SYSTEM = (
     "one\"), never bold or nested Markdown formatting within list items. This no-Markdown, "
     "plain-text formatting rule applies in every language you reply in (German, English, Spanish), "
     "not just English.\n"
+    "After you finish your main answer, add a new line containing exactly ===FOLLOWUPS=== and then, "
+    "one per line below it, up to 3 short, topic-relevant follow-up questions the student could "
+    "naturally ask next, in the same language as your reply. Do not number or bullet these lines and "
+    "do not use any Markdown formatting on them — plain short questions only. Always include this "
+    "marker and its follow-up questions after every normal educational answer you generate.\n"
     "Do NOT add your own disclaimer or 'not financial advice' note — the platform automatically "
     "appends the official educational disclaimer for you. "
     "Reply entirely in the user's language."
@@ -1494,6 +1499,7 @@ async def tutor_chat(body: ChatBody, user: dict = Depends(get_current_user)):
             "reply": refusal,
             "remaining": None if is_pro else max(0, FREE_TUTOR_DAILY_LIMIT - used_now),
             "is_pro": is_pro,
+            "follow_up_questions": [],
         }
 
     used = await tutor_used_today(user["user_id"])
@@ -1527,13 +1533,21 @@ async def tutor_chat(body: ChatBody, user: dict = Depends(get_current_user)):
     ).with_model("anthropic", CLAUDE_MODEL)
 
     try:
-        reply = await chat.send_message(UserMessage(text=prompt))
+        raw_reply = await chat.send_message(UserMessage(text=prompt))
     except Exception as e:
         logger.error(f"Tutor error: {e}")
         raise HTTPException(status_code=502, detail=L("tutor_unavailable"))
 
+    # Split the model's follow-up-question suggestions out of the main answer.
+    followups_marker = "===FOLLOWUPS==="
+    if followups_marker in raw_reply:
+        answer_part, _, followups_part = raw_reply.partition(followups_marker)
+    else:
+        answer_part, followups_part = raw_reply, ""
+    follow_up_questions = [ln.strip() for ln in followups_part.splitlines() if ln.strip()][:3]
+
     # Deterministically guarantee the localized educational disclaimer is present.
-    reply = append_disclaimer(reply, lang)
+    reply = append_disclaimer(answer_part, lang)
 
     now = datetime.now(timezone.utc)
     day = now.strftime("%Y-%m-%d")
@@ -1548,6 +1562,7 @@ async def tutor_chat(body: ChatBody, user: dict = Depends(get_current_user)):
         "reply": reply,
         "remaining": None if is_pro else max(0, FREE_TUTOR_DAILY_LIMIT - used_after),
         "is_pro": is_pro,
+        "follow_up_questions": follow_up_questions,
     }
 
 
