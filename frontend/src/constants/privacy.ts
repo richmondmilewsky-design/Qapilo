@@ -3,7 +3,7 @@ import type { Lang } from "@/src/i18n/translations";
 type Section = { heading: string; body: string };
 type Policy = { updated: string; intro: string; sections: Section[] };
 
-const CONTACT = "privacy@qapilo.app";
+const CONTACT = "privacy@qapilo.de";
 
 const PRIVACY: Record<Lang, Policy> = {
   en: {

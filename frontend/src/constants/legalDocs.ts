@@ -4,7 +4,7 @@ type Section = { heading: string; body: string };
 type Doc = { title: string; intro: string; sections: Section[] };
 export type DocType = "terms" | "ai" | "market" | "correct";
 
-const CONTACT = "privacy@qapilo.app";
+const CONTACT = "privacy@qapilo.de";
 
 const DOCS: Record<DocType, Record<Lang, Doc>> = {
   terms: {

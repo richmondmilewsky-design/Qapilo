@@ -9,7 +9,7 @@ import { useI18n } from "@/src/i18n/I18nContext";
 import HomeLogo from "@/src/components/HomeLogo";
 import { colors, fonts, radius, spacing } from "@/src/theme/theme";
 
-const CONTACT = "privacy@qapilo.app";
+const CONTACT = "privacy@qapilo.de";
 
 // Cross-platform confirm: RN Alert on native, window.confirm on web (Alert with
 // multiple buttons is a no-op on react-native-web).
