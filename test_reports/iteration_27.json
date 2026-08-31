@@ -1,0 +1,38 @@
+{
+  "summary": "Tested TUTOR_SYSTEM no-Markdown prompt update via real LLM calls to POST /api/tutor/chat in EN/DE/ES. Created backend/tests/test_iteration_27_tutor_no_markdown.py (11 tests: 3 comparison-question no-Markdown checks per language, 1 list-formatting check, 3 jargon-definition regressions, 1 advice-refusal regression, 3 disclaimer regressions). 10/11 passed. LLM-generated replies for stock-vs-ETF comparisons in all 3 languages and the 'list 3 ways to invest' question correctly avoided #headers, **bold**, Markdown tables (| / ---), and [link](url) syntax, using plain labeled lines / plain dash lists instead. Jargon-definition regression (10-year-old plain language + inline parenthetical definitions) still works correctly in all 3 languages, unaffected by the new rule. Disclaimer append (once, correct language, no duplication) still works. The 1 failure is a real but PRE-EXISTING bug unrelated to the LLM prompt: the hardcoded ADVICE_REFUSAL constant (used for advice-seeking short-circuit, bypasses the LLM entirely) itself contains Markdown italic syntax ('*about*', '*beizubringen*', '*sobre*') and underscore-italic disclaimer wrapping ('_For educational purposes only—not financial advice._') in all 3 languages -- this text is static Python, not LLM output, so the new TUTOR_SYSTEM no-Markdown rule has no effect on it, but it is visually inconsistent with the newly-stated no-Markdown policy since a real user would see raw asterisks/underscores rendered as-is if the frontend doesn't render Markdown.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "POST /api/tutor/chat (advice-refusal path, is_advice_seeking=true)",
+        "issue": "Hardcoded ADVICE_REFUSAL dict (server.py ~line 1295) contains Markdown italic markers (*about*, *beizubringen*, *sobre*) and underscore-italic disclaimer text (_For educational purposes only-not financial advice._ / German / Spanish equivalents). This bypasses the LLM and the new TUTOR_SYSTEM no-Markdown rule entirely, so these static refusal messages still leak raw Markdown symbols to the client in all 3 languages, inconsistent with the just-added no-Markdown policy intent. Not part of the requested TUTOR_SYSTEM-only change, but flagged since it's the same feature area."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration_27_tutor_no_markdown.py",
+    "/app/test_reports/pytest/pytest_results_iter27.xml",
+    "/app/test_reports/pytest/pytest_results_iter22_rerun.xml"
+  ],
+  "action_items": [
+    "Optional (not in current task scope but same feature area): strip Markdown from the hardcoded ADVICE_REFUSAL constant (remove * and _ italic wrapping) in all 3 languages to be consistent with the new no-Markdown policy, since this text bypasses TUTOR_SYSTEM and the LLM entirely."
+  ],
+  "critical_code_review_comments": [
+    "TUTOR_SYSTEM change (server.py ~1256-1264) correctly preserves the prior 10-year-old plain-language + inline jargon definition instruction intact and appends the new no-Markdown rule as instructed. Verified via live LLM output, not just prompt-text review.",
+    "append_disclaimer, is_advice_seeking, ADVICE_REFUSAL, and tutor_chat logic were unchanged and continue to work correctly for advice-refusal and disclaimer append -- confirmed via regression tests.",
+    "ADVICE_REFUSAL constant itself (unchanged in this task) contains raw Markdown syntax, which is a latent inconsistency now that a no-Markdown policy has been formally introduced for LLM replies."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "91% (10/11 new tests passed; 1 failure is a pre-existing static-constant issue, not related to the TUTOR_SYSTEM prompt change under test); regression suite (iteration_22): 100% (9/9)"},
+  "seed_data_creation": "Created ephemeral TEST_nomd_* signup users for auth token acquisition; no persistent seed data needed.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "The TUTOR_SYSTEM no-Markdown prompt change is verified working correctly for real LLM output in EN/DE/ES for comparison questions and list-formatting questions. All previously-verified regressions (jargon inline definitions, advice-refusal, disclaimer) still pass. The only finding is that ADVICE_REFUSAL (a static, non-LLM constant) has raw Markdown markers baked in -- this is out of scope for the current task (TUTOR_SYSTEM-only change) but worth a follow-up if strict no-Markdown output is desired everywhere in the tutor feature.",
+  "rca_of_issue": "ADVICE_REFUSAL messages are short-circuited before reaching the LLM (is_advice_seeking check in tutor_chat), so the newly-added no-Markdown instruction in TUTOR_SYSTEM (which only governs LLM system prompt behavior) never applies to them. The constant was authored with Markdown emphasis (*word*, _line_) before the no-Markdown policy existed and was never updated. Fix would be a one-line text edit removing the * and _ characters from the ADVICE_REFUSAL dict values in server.py."
+}
