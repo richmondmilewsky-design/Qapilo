@@ -60,6 +60,14 @@ TRIAL_DAYS = 7
 # Free usage phase (no payment yet): ends after 30 days OR when the user reaches level 30.
 FREE_TRIAL_DAYS = 30
 FREE_LEVEL_LIMIT = 60
+# Founder/team override: emails listed here (comma-separated, case-insensitive)
+# always get full premium access, no subscription record required. Unset/empty
+# by default — configure separately via the FOUNDER_EMAILS env var.
+FOUNDER_EMAILS = {
+    e.strip().lower()
+    for e in os.environ.get("FOUNDER_EMAILS", "").split(",")
+    if e.strip()
+}
 PRO_UNITS = {f"u{i}" for i in range(21, 51)}  # tiers 3-5 (advanced) gated behind Pro
 FREE_TUTOR_DAILY_LIMIT = 3
 PAYPAL_CLIENT_ID = os.environ.get("PAYPAL_CLIENT_ID", "").strip()
@@ -258,6 +266,7 @@ def compute_pro(u: dict) -> dict:
     trial_start = _parse_dt(u.get("trial_started_at")) or _parse_dt(u.get("created_at"))
     sub_active = bool(u.get("pro_active", False))
     has_sub_history = bool(u.get("subscription_id") or u.get("subscription_status"))
+    is_founder = u.get("email", "").lower() in FOUNDER_EMAILS
 
     # Self-heal: a missing/unparseable trial_ends_at (e.g. an account created
     # before this field existed, or inserted through a path that skipped it)
@@ -283,17 +292,19 @@ def compute_pro(u: dict) -> dict:
     time_active = bool(trial_end and now < trial_end)
     level_active = level < FREE_LEVEL_LIMIT
     trial_active = time_active and level_active
-    is_pro = sub_active or trial_active
+    is_pro = sub_active or trial_active or is_founder
 
     # Why the free phase ended (drives the upcoming paywall messaging).
     trial_end_reason = None
-    if not sub_active and not trial_active:
+    if not sub_active and not trial_active and not is_founder:
         if trial_end and now >= trial_end:
             trial_end_reason = "time"
         elif not level_active:
             trial_end_reason = "level"
 
-    if sub_active:
+    if is_founder:
+        trial_status, source = "premium", "founder"
+    elif sub_active:
         trial_status, source = "premium", "subscription"
     elif trial_active:
         trial_status, source = "active", "trial"

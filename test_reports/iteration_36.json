@@ -1,0 +1,32 @@
+{
+  "summary": "Tested FOUNDER_EMAILS override in compute_pro() (backend/server.py). Set FOUNDER_EMAILS=\"founder_test@example.com\" in backend/.env, restarted backend, ran full pytest suite (test_iteration_36_founder_override.py, 6 tests) plus manual curl/mongo verification for the on/off env-var behavior. All scenarios from the review request passed. Reverted FOUNDER_EMAILS to unset (default) afterward and restarted backend to leave environment as found.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration_36_founder_override.py",
+    "/app/test_reports/pytest/pytest_results_iter36.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Code review of compute_pro() confirmed is_founder check is evaluated first and takes priority over sub_active/trial_active as described; FOUNDER_EMAILS set is built once at module import (from os.environ at process start) so any change to the env var requires a backend restart to take effect -- this matches expected/documented behavior and was validated end-to-end.",
+    "EmailStr pydantic validation in SignupBody already lowercases/normalizes stored emails on signup, so real-world case-insensitivity is enforced twice (at signup normalization AND at compute_pro's .lower() compare) -- no gap found."
+  ],
+  "updated_files": [
+    "/app/backend/.env (temporarily added FOUNDER_EMAILS, then removed again - restored to original state)",
+    "/app/backend/tests/test_iteration_36_founder_override.py (new)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "N/A - backend only testing requested"},
+  "seed_data_creation": "Created and cleaned up TEST_-prefixed users plus a temporary founder_test@example.com user (deleted after testing). No persistent seed data left behind.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "FOUNDER_EMAILS is confirmed unset/empty in backend/.env at end of this test run (default state) and backend is running normally. If founder feature needs to go live, main agent/user must set FOUNDER_EMAILS in backend/.env and restart the backend supervisor process for it to take effect (module-level env var, not re-read per-request).",
+  "rca_of_issue": "N/A - no bugs found. All 7 required test scenarios verified: (1) founder email with expired trial + low level + no subscription -> is_pro=true, trial_status='premium', pro_source='founder', trial_end_reason=null; (2) case-insensitive email match verified via DB-level uppercase email + confirmed pydantic EmailStr also auto-lowercases at signup; (3) non-founder email with identical expired/low-level/no-sub setup correctly shows trial_status='ended', pro_source='free', trial_end_reason='time' (no leak); (4) unsetting FOUNDER_EMAILS + restarting backend caused the same founder_test@example.com user to revert to trial_status='ended', is_pro=false, pro_source='free' -- confirmed via live curl before/after restart; (5) regression: fresh signup shows trial_status='active'/pro_source='trial', and pro_active=true subscriber shows trial_status='premium'/pro_source='subscription' -- both unaffected; (6) /api/practice (200) and /api/progress consistency with /auth/me verified for founder user."
+}
