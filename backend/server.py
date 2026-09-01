@@ -289,8 +289,14 @@ def compute_pro(u: dict) -> dict:
 
     level = xp_into_level(u.get("xp", 0))["level"]
 
+    starting_level = 1
+    pq = u.get("placement_quiz_result")
+    if isinstance(pq, dict) and isinstance(pq.get("granted_level"), int):
+        starting_level = pq["granted_level"]
+    effective_level_limit = max(FREE_LEVEL_LIMIT, starting_level + 40)
+
     time_active = bool(trial_end and now < trial_end)
-    level_active = level < FREE_LEVEL_LIMIT
+    level_active = level < effective_level_limit
     trial_active = time_active and level_active
     is_pro = sub_active or trial_active or is_founder
 
@@ -322,7 +328,7 @@ def compute_pro(u: dict) -> dict:
         "trial_started_at": (trial_start.isoformat() if trial_start else u.get("created_at")),
         "trial_ends_at": u.get("trial_ends_at"),
         "current_level": level,
-        "free_level_limit": FREE_LEVEL_LIMIT,
+        "free_level_limit": effective_level_limit,
         "subscription_status": u.get("subscription_status"),
     }
 
