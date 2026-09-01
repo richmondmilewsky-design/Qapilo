@@ -31,7 +31,11 @@ export default function Experience() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
       await setExperience(selected);
-      router.replace("/(tabs)");
+      if (selected === "beginner") {
+        router.replace("/(tabs)");
+      } else {
+        router.replace("/placement-quiz");
+      }
     } catch {
       setBusy(false);
     }
