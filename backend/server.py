@@ -766,7 +766,7 @@ async def complete_placement_quiz(body: PlacementQuizCompleteBody, user: dict = 
     granted_lessons: List[str] = []
     granted_xp = 0
     for lesson_id in LESSON_ORDER:
-        if level_for_xp(base_xp + granted_xp) >= target_level or len(granted_lessons) >= 20:
+        if level_for_xp(base_xp + granted_xp) >= target_level or len(granted_lessons) >= 150:
             break
         if lesson_id in completed:
             continue
