@@ -1,0 +1,36 @@
+{
+  "summary": "Tested compute_pro() self-heal fix for missing/corrupt trial_ends_at + FREE_LEVEL_LIMIT 40->60 change (backend/server.py). Found and FIXED one critical bug: the self-heal code used asyncio.create_task() on the result of Motor's db.users.update_one(), but Motor 3.3.1 returns a Future (not a plain coroutine) for that call, so asyncio.create_task() raised TypeError -> every request that hit the self-heal path (the exact scenarios this fix targets) returned HTTP 500. Fixed by changing to asyncio.ensure_future() (which accepts both coroutines and Futures). After the fix, restarted backend and reran all 10 test cases -- 10/10 pass, confirming: self-heal grants active 30-day trial + persists trial_started_at/trial_ends_at to MongoDB (survives across calls, no re-heal drift) for missing/None/unparseable trial_ends_at with no sub history; genuinely expired trials stay 'ended'/'time' and are NOT re-healed; users with subscription history (subscription_status set) are correctly excluded from self-heal and stay 'ended'; FREE_LEVEL_LIMIT is confirmed 60 (level 55 user is_pro=true, level 61 user trial_end_reason='level', free_level_limit field returns 60); new email signups still get trial fields immediately without needing self-heal; pro_active=true users correctly show trial_status='premium'; /api/practice and /api/progress remain consistent with /api/auth/me (is_pro, free_level_limit=60). Demo account (demo@tradequest.app) unaffected/still active. Note: unrelated pre-existing 'email_service ... http 429' rate-limit log lines observed in backend logs (email sending rate-limited by provider) -- not related to this fix, not investigated further.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration_34_trial_selfheal.py",
+    "/app/test_reports/pytest/pytest_iteration_34_trial_selfheal.xml"
+  ],
+  "action_items": [
+    "FIXED (verify in your diff): backend/server.py compute_pro() self-heal block changed asyncio.create_task(db.users.update_one(...)) to asyncio.ensure_future(db.users.update_one(...)) around line 261, because Motor 3.3.1's update_one() returns a Future rather than a bare coroutine, which asyncio.create_task() rejects with TypeError, causing a 500 on GET /api/auth/me (and any endpoint calling compute_pro/public_user) whenever the self-heal path fired. This was a CRITICAL regression that would have broken exactly the users this fix was meant to help. Please confirm this fix is acceptable/keep it.",
+    "Unrelated, pre-existing: backend logs show repeated 'email_service: email trial_started/email_verification failed: http 429' -- provider-side rate limiting on transactional email sending, not caused by this change, but worth a look if it persists in production (signups may not receive welcome/verification emails)."
+  ],
+  "critical_code_review_comments": [
+    "compute_pro()'s has_sub_history / self-heal / expired-trial exclusion logic is correctly ordered and matches the intended spec exactly (verified with 10 targeted pytest scenarios).",
+    "The fire-and-forget async persistence pattern (asyncio.create_task/ensure_future on a Motor call from inside a sync function) is fragile -- Motor's return type for driver calls can vary (Future vs coroutine depending on version/wrapping); asyncio.ensure_future is the safer general-purpose call for this pattern going forward.",
+    "compute_pro mutates the input dict `u` in place (sets trial_started_at/trial_ends_at) as part of self-heal -- acceptable here since it's immediately used by public_user(), but worth a comment if reused elsewhere with the pre-mutation dict expected."
+  ],
+  "updated_files": [
+    "/app/backend/server.py (line ~261: asyncio.create_task -> asyncio.ensure_future in compute_pro self-heal block)",
+    "/app/backend/tests/test_iteration_34_trial_selfheal.py (new)"
+  ],
+  "success_rate": {"backend": "100% (10/10 after fix; 1/10 before fix due to the asyncio.create_task bug)"},
+  "seed_data_creation": "Created and cleaned up TEST_trial_* users via signup endpoint + direct MongoDB field mutation to simulate missing/corrupt/expired trial and subscription-history states; all deleted in test teardown.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "compute_pro() self-heal + FREE_LEVEL_LIMIT=60 fully verified after fixing an unrelated-but-blocking asyncio.create_task/Future bug in the same code block. If server.py is regenerated/reverted, watch for this asyncio.create_task issue reappearing -- it is a Motor-version-specific gotcha (Motor 3.3.1 update_one() returns Future, not coroutine).",
+  "rca_of_issue": "Root cause: asyncio.create_task() requires its argument to satisfy inspect.iscoroutine(); Motor 3.3.1's AsyncIOMotorCollection.update_one() call returns an asyncio.Future (via its internal wrap_future/asynchronize decorator), not a bare coroutine object, when invoked outside an `await`. Calling asyncio.create_task(future) therefore raises TypeError: a coroutine was expected, got <Future ...>, uncaught, causing a 500 on any request path that both (a) invokes compute_pro() and (b) meets the self-heal trigger condition (trial_end None + not pro_active + no sub history) -- i.e. precisely the bug-fix's target scenario. Reproduced directly via GET /api/auth/me after unsetting trial_ends_at in Mongo (500 Internal Server Error, confirmed via backend.err.log traceback). Mitigation applied: swapped asyncio.create_task(...) for asyncio.ensure_future(...), which accepts either a coroutine or a Future/Task and schedules it correctly; verified fix with 10/10 passing pytest cases covering all requested scenarios plus regressions."
+}

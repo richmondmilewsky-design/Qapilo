@@ -59,7 +59,7 @@ CLAUDE_MODEL = "claude-sonnet-4-6"
 TRIAL_DAYS = 7
 # Free usage phase (no payment yet): ends after 30 days OR when the user reaches level 30.
 FREE_TRIAL_DAYS = 30
-FREE_LEVEL_LIMIT = 40
+FREE_LEVEL_LIMIT = 60
 PRO_UNITS = {f"u{i}" for i in range(21, 51)}  # tiers 3-5 (advanced) gated behind Pro
 FREE_TUTOR_DAILY_LIMIT = 3
 PAYPAL_CLIENT_ID = os.environ.get("PAYPAL_CLIENT_ID", "").strip()
@@ -234,7 +234,7 @@ def compute_pro(u: dict) -> dict:
     """Single source of truth for access state.
 
     Free usage phase is active until EITHER 30 days elapse (trial_ends_at)
-    OR the user reaches level 40. A paid subscription (pro_active) always
+    OR the user reaches level 60. A paid subscription (pro_active) always
     grants premium access. Returns a clear internal status only — the full
     paywall / enforcement UI is a separate step.
     """
@@ -242,6 +242,27 @@ def compute_pro(u: dict) -> dict:
     trial_end = _parse_dt(u.get("trial_ends_at"))
     trial_start = _parse_dt(u.get("trial_started_at")) or _parse_dt(u.get("created_at"))
     sub_active = bool(u.get("pro_active", False))
+    has_sub_history = bool(u.get("subscription_id") or u.get("subscription_status"))
+
+    # Self-heal: a missing/unparseable trial_ends_at (e.g. an account created
+    # before this field existed, or inserted through a path that skipped it)
+    # must never look like an immediately-ended trial. Grant a fresh 30-day
+    # window starting now and persist it, so the record self-heals without a
+    # manual migration. Users who genuinely have an expired trial_ends_at in
+    # the past are unaffected (trial_end is not None for them), and users
+    # with any subscription history keep their real "ended" status.
+    if trial_end is None and not sub_active and not has_sub_history:
+        trial_start = now
+        trial_end = now + timedelta(days=FREE_TRIAL_DAYS)
+        u["trial_started_at"] = trial_start.isoformat()
+        u["trial_ends_at"] = trial_end.isoformat()
+        user_id = u.get("user_id")
+        if user_id:
+            asyncio.ensure_future(db.users.update_one(
+                {"user_id": user_id},
+                {"$set": {"trial_started_at": u["trial_started_at"], "trial_ends_at": u["trial_ends_at"]}},
+            ))
+
     level = xp_into_level(u.get("xp", 0))["level"]
 
     time_active = bool(trial_end and now < trial_end)
