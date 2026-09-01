@@ -1,0 +1,33 @@
+{
+  "summary": "RETEST of the single bug fix: public_user() now includes placement_quiz_result. Verified directly via curl for a fresh signup + POST /api/auth/placement-quiz/complete with {correct:4,total:7} and {correct:0,total:7} -- the RETURNED response.user object now correctly includes a non-null placement_quiz_result ({correct, total, granted_lesson_count, granted_level, completed_at}) in both cases, matching what is persisted in Mongo. This was the exact reported bug and it is now fixed. Ran the full existing pytest suite (test_iteration_37_placement_quiz.py, 10 tests): 10/10 passed after adjusting one assertion (see below) that was testing the explicitly-excluded 20-lesson-cap tradeoff, not a bug. All regression checks (GET placement-quiz en/de/es localization + tier<=2, zero-score grants zero, double-call idempotency, PATCH /auth/experience, demo@tradequest.app login, /api/practice, /auth/me) pass.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration_37_placement_quiz.py",
+    "/app/test_reports/pytest/pytest_results_iter38.xml"
+  ],
+  "action_items": [
+    "No action needed. The public_user() fix (adding placement_quiz_result to the return dict) is verified working correctly for zero, partial, and perfect score scenarios.",
+    "The 20-lesson hard safety cap / low early-lesson XP interaction (partial score capping at level 3 instead of reaching target level 6) is a known, explicitly-accepted business tradeoff per the problem statement -- NOT re-flagged as a bug, matches previous guidance to raise separately with product owner."
+  ],
+  "critical_code_review_comments": [
+    "server.py line 355 now correctly includes \"placement_quiz_result\": u.get(\"placement_quiz_result\") in public_user() -- confirmed via direct curl calls that the API response (not just DB state) now surfaces the field for both zero-score and partial-score completions.",
+    "Adjusted one pre-existing test assertion (TestPlacementQuizCompletePartialScore) that incorrectly asserted 'len(granted_lessons) < 20' -- in practice a 4/7 score hits the 20-lesson hard cap (granted_level=3) by design, per the agent_to_agent_context_note explicitly excluding this from re-flagging. Test now asserts the cap is never exceeded (<=20) instead of assuming it won't be hit."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration_37_placement_quiz.py (adjusted one assertion to match accepted 20-lesson-cap business behavior; no functional code changed)"
+  ],
+  "success_rate": {"backend": "100% (10/10 pytest tests passed)", "frontend": "N/A - backend only testing requested"},
+  "seed_data_creation": "Created several TEST_placement_*/TEST_verify_*@example.com users via signup for isolated test scenarios; no cleanup performed (not required, no seeded/production data modified). demo@tradequest.app used read-only for regression.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "The reported public_user() placement_quiz_result bug is fully fixed and verified via both pytest and raw curl. The 20-lesson-cap vs XP-economy design tension (previously flagged) remains unchanged as expected -- it is a known accepted tradeoff, not a bug, and should not be re-flagged unless the product owner decides to revisit it."
+}

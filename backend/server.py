@@ -352,6 +352,7 @@ def public_user(u: dict) -> dict:
         "accepted_terms": u.get("accepted_terms", False),
         "accepted_disclaimer": u.get("accepted_disclaimer", False),
         "experience_level": u.get("experience_level"),
+        "placement_quiz_result": u.get("placement_quiz_result"),
         "consent_analytics": u.get("consent_analytics", False),
         "consent_product": u.get("consent_product", False),
         "consent_marketing": u.get("consent_marketing", False),
@@ -714,6 +715,81 @@ async def set_experience(body: ExperienceBody, user: dict = Depends(get_current_
         raise HTTPException(status_code=400, detail=L("bad_request"))
     await db.users.update_one(
         {"user_id": user["user_id"]}, {"$set": {"experience_level": level}}
+    )
+    fresh = await db.users.find_one({"user_id": user["user_id"]}, {"_id": 0})
+    return {"user": public_user(fresh)}
+
+
+# ----------------------------- Placement quiz (onboarding-only) -----------------------------
+class PlacementQuizCompleteBody(BaseModel):
+    correct: int
+    total: int
+
+
+@api.get("/auth/placement-quiz")
+async def placement_quiz(lang: str = "en", user: dict = Depends(get_current_user)):
+    """Short beginner-tier (tier <= 2) placement quiz shown to users who picked
+    'some experience' / 'advanced' during onboarding. Purely diagnostic — the
+    resulting score is used by /auth/placement-quiz/complete to silently skip
+    ahead through the very first lessons (capped)."""
+    lang = norm_lang(lang)
+    pool = [lid for lid, l in LESSON_MAP.items() if l["tier"] <= 2] or list(LESSON_MAP.keys())
+    random.shuffle(pool)
+    questions, used = [], set()
+    for lid in pool:
+        l = LESSON_MAP[lid]
+        qs = loc_lesson_full(l, lang)["questions"]
+        if not qs:
+            continue
+        q = random.choice(qs)
+        if q["q"] in used:
+            continue
+        used.add(q["q"])
+        questions.append({"q": q["q"], "options": q["options"], "answer": q["answer"],
+                          "explain": q["explain"], "tier": l["tier"]})
+        if len(questions) >= 7:
+            break
+    return {"questions": questions}
+
+
+@api.post("/auth/placement-quiz/complete")
+async def complete_placement_quiz(body: PlacementQuizCompleteBody, user: dict = Depends(get_current_user)):
+    """Silently mark the very first N curriculum lessons completed based on the
+    placement quiz score, capped so the resulting level never exceeds 10 —
+    protecting the free-trial/paywall funnel. A one-time onboarding adjustment:
+    never touches badges, streaks, or perfect-lesson data."""
+    score_frac = (body.correct / body.total) if body.total else 0.0
+    target_level = min(10, round(1 + score_frac * 9))
+
+    completed = set(user.get("completed_lessons", []))
+    base_xp = user.get("xp", 0)
+    granted_lessons: List[str] = []
+    granted_xp = 0
+    for lesson_id in LESSON_ORDER:
+        if level_for_xp(base_xp + granted_xp) >= target_level or len(granted_lessons) >= 20:
+            break
+        if lesson_id in completed:
+            continue
+        l = LESSON_MAP.get(lesson_id)
+        if not l:
+            continue
+        granted_xp += l["xp"]
+        granted_lessons.append(lesson_id)
+
+    now = datetime.now(timezone.utc)
+    await db.users.update_one(
+        {"user_id": user["user_id"]},
+        {
+            "$inc": {"xp": granted_xp},
+            "$addToSet": {"completed_lessons": {"$each": granted_lessons}},
+            "$set": {"placement_quiz_result": {
+                "correct": body.correct,
+                "total": body.total,
+                "granted_lesson_count": len(granted_lessons),
+                "granted_level": level_for_xp(base_xp + granted_xp),
+                "completed_at": now.isoformat(),
+            }},
+        },
     )
     fresh = await db.users.find_one({"user_id": user["user_id"]}, {"_id": 0})
     return {"user": public_user(fresh)}

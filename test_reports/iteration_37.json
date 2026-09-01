@@ -1,0 +1,49 @@
+{
+  "summary": "Tested new Placement Quiz backend feature (GET /api/auth/placement-quiz, POST /api/auth/placement-quiz/complete) in server.py. Created pytest suite (10 tests) covering question shape/localization/shuffle validity, zero/partial/perfect score grant logic, level-cap safety, double-call idempotency, and regression checks (PATCH /auth/experience, demo login, /api/practice). 7/10 passed. Found 2 real backend issues: (1) placement_quiz_result is never returned in the API response because public_user() omits the field even though it IS persisted in Mongo, and (2) the 20-lesson hard safety cap combined with the curriculum's low per-early-lesson XP (10 XP for roughly the first ~90 lessons) means the quiz can NEVER grant more than 200 XP / level 3, regardless of quiz score -- so a perfect score (target_level=10) or a 57% score (target_level=6) both silently cap out at level 3 instead of approaching their computed target levels. Double-grant/idempotency, GET endpoint shape/localization/shuffle, and all regression checks passed cleanly.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/auth/placement-quiz/complete",
+        "issue": "placement_quiz_result is $set on the user document in MongoDB, but public_user() (the serializer used for every /auth/* response, server.py ~line 330-361) does not include a 'placement_quiz_result' key in its returned dict. Result: the API response's user object NEVER contains placement_quiz_result, even though the DB write succeeds. Any frontend (Part 2) trying to read user.placement_quiz_result right after this call will get undefined. Fix: add \"placement_quiz_result\": u.get(\"placement_quiz_result\") to public_user().",
+        "priority": "CRITICAL"
+      },
+      {
+        "endpoint": "POST /api/auth/placement-quiz/complete",
+        "issue": "Design/logic tension between the 20-lesson hard safety cap and the curriculum's XP economy: the first ~90 lessons in LESSON_ORDER each award only 10 XP (confirmed via LESSON_MAP). 20 lessons x 10 XP = 200 XP = level 3 (level_for_xp: 100xp/level). So the loop's 20-lesson cap is ALWAYS hit before the target_level check for any target_level > 3, meaning: a perfect 7/7 score (target_level=10) and a 4/7 score (target_level=6) both end up granting the exact same result -- 20 lessons, 200 XP, level 3 -- because the safety cap fires first, not the intended target-level logic. The feature currently cannot differentiate scores above roughly 30% and never approaches level 6 or level 10 as described in the requirements. This may be intentional (protects paywall funnel aggressively) but contradicts the explicit test expectations in the problem statement (partial score ~level 6, perfect score should meaningfully exceed level 3) -- needs main agent's business judgment on whether to raise the 20-lesson cap or the early-lesson XP values.",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration_37_placement_quiz.py",
+    "/app/test_reports/pytest/pytest_results_iter37.xml"
+  ],
+  "action_items": [
+    "Add placement_quiz_result to public_user() so the field is actually returned in API responses (currently silently dropped despite being persisted in Mongo).",
+    "Reconsider the interaction between the 20-lesson hard cap and low early-lesson XP values (10xp each) -- as implemented, the quiz can never grant more than level 3 regardless of score, which defeats the stated purpose of differentiating placement outcomes up to level 6/10.",
+    "Once above fixed, retest the partial (4/7) and perfect (7/7) score scenarios to confirm granted level approaches the intended target_level rather than being capped at level 3 by the 20-lesson safety cap."
+  ],
+  "critical_code_review_comments": [
+    "complete_placement_quiz's loop logic itself (break condition checked BEFORE granting each candidate lesson, skip-if-already-completed via 'continue' without re-checking break) is correctly implemented and matches the documented spec -- verified via the zero-score test (0 lessons/xp granted) and the double-call test (no duplicate lesson IDs, no XP double-counting, lower-score replay after a higher-score call correctly does NOT remove already-granted lessons/xp).",
+    "GET /api/auth/placement-quiz correctly returns exactly 7 questions, all tier<=2, properly localized for en/de/es, with valid shuffled option/answer indices (reuses _shuffle_options/loc_lesson_full as documented) -- no issues found here.",
+    "public_user() is missing the placement_quiz_result field -- a straightforward omission causing the persisted quiz result to never surface in any API response.",
+    "Badges/streak/longest_streak/perfect_lessons were confirmed untouched by the placement quiz flow across all score scenarios tested (zero, partial, perfect) -- evaluate_badges is correctly never triggered.",
+    "Regression checks passed: PATCH /api/auth/experience (valid + invalid experience_level), demo@tradequest.app login, /api/practice, /api/auth/me all work unaffected by this change."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration_37_placement_quiz.py (new)"
+  ],
+  "success_rate": {"backend": "70% (7/10 pytest tests passed; 3 failures are genuine backend bugs, not test-script issues)", "frontend": "N/A - backend only testing requested, no Part-2 UI exists yet"},
+  "seed_data_creation": "Created several TEST_placement_*@example.com users via normal signup for isolated zero/partial/perfect/double-call scenarios; no cleanup performed (not required per instructions, no persistent/seeded data was modified). demo@tradequest.app used read-only for regression check (login + /api/practice + /auth/me), not mutated.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Placement quiz GET endpoint, zero-score grant, and double-call idempotency are solid and verified correct. Two real bugs remain: (1) public_user() drops placement_quiz_result from responses -- easy one-line fix; (2) the 20-lesson hard cap vs. 10xp-per-early-lesson economy means the quiz never actually grants past level 3 for ANY score, which contradicts the intended per-score level targeting (level 6 for ~57%, level 10 for perfect). After main agent addresses these, rerun /app/backend/tests/test_iteration_37_placement_quiz.py -- expect the two currently-failing KeyError/None assertions on placement_quiz_result to pass once field is added, and the level-6/level-10 target assertions to need re-evaluation based on whatever XP/cap adjustment main agent chooses.",
+  "rca_of_issue": "Bug 1 RCA: public_user() (server.py) is a hand-maintained field-by-field serializer; placement_quiz_result was set via $set in complete_placement_quiz but the corresponding key was never added to public_user()'s return dict -- classic serializer drift when adding a new persisted field without updating the shared response-shaping function. Bug 2 RCA: the 20-lesson cap (added as a 'hard safety cap' per requirements) interacts multiplicatively with LESSON_MAP's per-lesson xp values (10xp for roughly the first 90 lessons in LESSON_ORDER) -- 20*10=200xp=level 3 ceiling, which is far below the level 6/10 targets the requirements describe for partial/perfect scores. The level<=10 cap logic (checking level_for_xp before each grant) is technically correct and would work fine if allowed to run further, but the 20-lesson iteration cap fires first in practice for any target_level > ~3, given current early-lesson XP values."
+}
