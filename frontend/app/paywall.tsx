@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
+import { View, Text, StyleSheet, Pressable, ScrollView, TextInput } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
@@ -31,6 +31,11 @@ export default function Paywall() {
   const [selected, setSelected] = useState<PlanId>(DEFAULT_PLAN_ID);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
+  const [voucherOpen, setVoucherOpen] = useState(false);
+  const [voucherCode, setVoucherCode] = useState("");
+  const [voucherBusy, setVoucherBusy] = useState(false);
+  const [voucherError, setVoucherError] = useState("");
+  const [appliedVoucher, setAppliedVoucher] = useState<{ code: string; discount_percent: number } | null>(null);
 
   const isPremium = !!user?.is_pro && user?.pro_source === "subscription";
   const selectedPlan: PlanOffer = PLANS.find((p) => p.id === selected) || PLANS[0];
@@ -43,7 +48,8 @@ export default function Paywall() {
   // Placeholder purchase — real StoreKit / Play Billing arrives in a later step.
   const purchase = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setNote(t("pw.placeholderNote"));
+    const base = t("pw.placeholderNote");
+    setNote(appliedVoucher ? `${base} (code: ${appliedVoucher.code})` : base);
   };
 
   const restore = async () => {
@@ -59,6 +65,34 @@ export default function Paywall() {
       setNote(t("pw.placeholderNote"));
     } finally {
       setBusy(false);
+    }
+  };
+
+  // Voucher/discount-code validation only — no real charge exists yet, so this
+  // never recalculates the displayed price, only shows an informational badge.
+  const applyVoucher = async () => {
+    const code = voucherCode.trim();
+    if (!code) return;
+    setVoucherBusy(true);
+    setVoucherError("");
+    try {
+      const res = await apiRequest<{ valid: boolean; code?: string; discount_percent?: number; reason?: string }>(
+        "/vouchers/validate",
+        { method: "POST", body: { code, plan_id: selected } }
+      );
+      if (res.valid) {
+        setAppliedVoucher({ code: res.code || code.toUpperCase(), discount_percent: res.discount_percent || 0 });
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else {
+        setAppliedVoucher(null);
+        setVoucherError(t(`pw.voucherError_${res.reason || "not_found"}` as any));
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
+    } catch {
+      setAppliedVoucher(null);
+      setVoucherError(t("pw.voucherError_not_found"));
+    } finally {
+      setVoucherBusy(false);
     }
   };
 
@@ -137,6 +171,8 @@ export default function Paywall() {
                   onPress={() => {
                     Haptics.selectionAsync();
                     setSelected(p.id);
+                    setAppliedVoucher(null);
+                    setVoucherError("");
                   }}
                   style={[styles.plan, active && styles.planActive]}
                 >
@@ -158,9 +194,61 @@ export default function Paywall() {
                   {perMonth ? <Text style={styles.planPer}>{perMonth}</Text> : null}
                   {p.members ? <Text style={styles.planPer}>{t("pw.members")}</Text> : null}
                   {p.descKey ? <Text style={styles.planDesc}>{t(p.descKey)}</Text> : null}
+                  {active && appliedVoucher ? (
+                    <Text style={styles.voucherApplied} testID="voucher-applied-badge">
+                      {t("pw.voucherApplied")} -{appliedVoucher.discount_percent}%
+                    </Text>
+                  ) : null}
                 </Pressable>
               );
             })}
+          </View>
+        )}
+
+        {!isPremium && (
+          <View style={{ marginTop: spacing.lg }}>
+            <Pressable
+              testID="voucher-toggle"
+              onPress={() => {
+                Haptics.selectionAsync();
+                setVoucherOpen((o) => !o);
+              }}
+              style={styles.voucherToggle}
+            >
+              <MaterialCommunityIcons name="ticket-percent-outline" size={18} color={colors.brand} />
+              <Text style={styles.voucherToggleText}>{t("pw.voucherToggle")}</Text>
+              <Ionicons name={voucherOpen ? "chevron-up" : "chevron-down"} size={16} color={colors.muted} />
+            </Pressable>
+            {voucherOpen && (
+              <View style={styles.voucherBox}>
+                <View style={styles.voucherRow}>
+                  <TextInput
+                    testID="voucher-input"
+                    value={voucherCode}
+                    onChangeText={(v) => { setVoucherCode(v); setVoucherError(""); }}
+                    autoCapitalize="characters"
+                    autoCorrect={false}
+                    placeholder={t("pw.voucherPlaceholder")}
+                    placeholderTextColor={colors.muted}
+                    style={styles.voucherInput}
+                  />
+                  <Pressable
+                    testID="voucher-apply"
+                    onPress={applyVoucher}
+                    disabled={voucherBusy || !voucherCode.trim()}
+                    style={[styles.voucherApplyBtn, (voucherBusy || !voucherCode.trim()) && { opacity: 0.5 }]}
+                  >
+                    <Text style={styles.voucherApplyText}>{voucherBusy ? "…" : t("pw.voucherApply")}</Text>
+                  </Pressable>
+                </View>
+                {voucherError ? <Text style={styles.voucherError} testID="voucher-error">{voucherError}</Text> : null}
+                {appliedVoucher && !voucherError ? (
+                  <Text style={styles.voucherSuccess} testID="voucher-success">
+                    {t("pw.voucherSuccess")}: -{appliedVoucher.discount_percent}%
+                  </Text>
+                ) : null}
+              </View>
+            )}
           </View>
         )}
 
@@ -254,4 +342,24 @@ const styles = StyleSheet.create({
   legalRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, marginTop: spacing.lg },
   legalLink: { fontFamily: fonts.bodySemi, fontSize: 13, color: colors.brand },
   legalDot: { color: colors.muted },
+  voucherToggle: { flexDirection: "row", alignItems: "center", gap: spacing.sm, alignSelf: "center", paddingVertical: spacing.sm },
+  voucherToggleText: { fontFamily: fonts.bodySemi, fontSize: 13, color: colors.brand },
+  voucherBox: {
+    backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, borderWidth: 1,
+    borderColor: colors.border, padding: spacing.md, marginTop: spacing.xs,
+  },
+  voucherRow: { flexDirection: "row", gap: spacing.sm },
+  voucherInput: {
+    flex: 1, backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: 1,
+    borderColor: colors.border, paddingHorizontal: spacing.md, height: 44,
+    fontFamily: fonts.bodySemi, fontSize: 15, letterSpacing: 1, color: colors.onSurface,
+  },
+  voucherApplyBtn: {
+    backgroundColor: colors.brand, borderRadius: radius.md, paddingHorizontal: spacing.lg,
+    alignItems: "center", justifyContent: "center", minHeight: 44,
+  },
+  voucherApplyText: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.onBrand },
+  voucherError: { fontFamily: fonts.bodyMed, fontSize: 12.5, color: colors.error, marginTop: spacing.sm },
+  voucherSuccess: { fontFamily: fonts.bodyMed, fontSize: 12.5, color: colors.brand, marginTop: spacing.sm },
+  voucherApplied: { fontFamily: fonts.bodySemi, fontSize: 12.5, color: colors.brand, marginTop: spacing.xs },
 });

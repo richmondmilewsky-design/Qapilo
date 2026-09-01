@@ -398,6 +398,7 @@ async def ensure_indexes():
     await db.lesson_memory.create_index([("user_id", 1), ("lesson_id", 1)], unique=True)
     await db.duels.create_index("duel_id", unique=True)
     await db.duels.create_index("expires_at", expireAfterSeconds=0)
+    await db.discount_codes.create_index("code", unique=True)
     await db.email_events.create_index(
         "created_at", expireAfterSeconds=EMAIL_LOG_RETENTION_DAYS * 86400)
     await db.support_requests.create_index(
@@ -1217,6 +1218,39 @@ async def complete_duel(duel_id: str, body: DuelCompleteBody, user: dict = Depen
         "opponent_user_id": fresh.get("opponent_user_id"),
         "opponent_result": fresh.get("opponent_result"),
     }
+
+
+# ----------------------------- Vouchers (discount code validation) -----------------------------
+class VoucherValidateBody(BaseModel):
+    code: str
+    plan_id: str
+
+
+@api.post("/vouchers/validate")
+async def validate_voucher(body: VoucherValidateBody, user: dict = Depends(get_current_user)):
+    """Validate a discount code for display purposes only. The purchase flow is
+    still a placeholder (no real payment processor connected yet), so this does
+    NOT redeem the code or change any price — it only checks and reports whether
+    the code would currently apply."""
+    code = body.code.strip().upper()
+    doc = await db.discount_codes.find_one({"code": code}, {"_id": 0})
+    if not doc:
+        return {"valid": False, "reason": "not_found"}
+    if not doc.get("active", False):
+        return {"valid": False, "reason": "inactive"}
+    valid_until = doc.get("valid_until")
+    if valid_until is not None:
+        if valid_until.tzinfo is None:
+            valid_until = valid_until.replace(tzinfo=timezone.utc)
+        if valid_until < datetime.now(timezone.utc):
+            return {"valid": False, "reason": "expired"}
+    max_redemptions = doc.get("max_redemptions")
+    if max_redemptions is not None and doc.get("redemption_count", 0) >= max_redemptions:
+        return {"valid": False, "reason": "limit_reached"}
+    applicable_plan_ids = doc.get("applicable_plan_ids")
+    if applicable_plan_ids is not None and body.plan_id not in applicable_plan_ids:
+        return {"valid": False, "reason": "not_applicable"}
+    return {"valid": True, "code": doc["code"], "discount_percent": doc.get("discount_percent", 0)}
 
 
 @api.get("/progress")
