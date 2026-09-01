@@ -1,0 +1,35 @@
+{
+  "summary": "Verified the answer-option shuffle fix in loc_lesson_full()/_shuffle_options() (backend/server.py ~line 203). Confirmed via 9 pytest cases: (1) GET /api/lessons/l1 called 15x for the same lesson_id+lang shows the answer index actually VARYING across calls for lang=en/de/es (not a static/fixed shuffle), while the option text at the returned answer index always equals the ground-truth correct answer text pulled independently from curriculum.py's LESSON_MAP/LESSON_T source; (2) GET /api/practice (5 questions x 15 calls = 75 questions) shows varying answer indices and correct-text alignment holds for every question, cross-matched against LESSON_MAP by question text + option-set (since a few question texts like 'What is a share?' repeat across 3 different lessons with different option sets/answers -- had to match on option-set too, not just question text, to avoid a false-positive in my own test); (3) Duel: created a duel, fetched GET /api/duels/{id} 6x -- option order/answer index varied across fetches for the same fixed question set, and correctness held in every fetch; (4) POST /api/lessons/{id}/complete, /api/practice/complete, /api/duels/{id}/complete all still return 200 with correct XP/user payloads (regression pass). One data note (not a code bug): all 600 lessons currently have DE and ES translations present in LESSON_T, so the untranslated-fallback branch of loc_lesson_full (`if not t: ...`) is never actually exercised by real data today -- it was only reviewed by code inspection (confirmed it also calls _shuffle_options correctly) and could not be exercised end-to-end via the API since no untranslated lesson exists in the current curriculum.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration_35_answer_shuffle.py",
+    "/app/test_reports/pytest/pytest_iteration_35_answer_shuffle.xml"
+  ],
+  "action_items": [
+    "No fixes needed -- shuffle fix works correctly across lessons, practice, and duels, for en/de/es, and does not break answer correctness.",
+    "Informational only: the untranslated-fallback branch in loc_lesson_full (line ~221-223) is currently dead code in practice since every lesson has DE+ES translations in curriculum data -- not a bug, just noting it wasn't exercised via live API traffic (only verified by code read)."
+  ],
+  "critical_code_review_comments": [
+    "_shuffle_options() correctly uses random.shuffle on an index-order list and remaps answer via order.index(q['answer']) -- correct approach, O(n) remap on small option lists (always 4), no performance concern.",
+    "Both code paths in loc_lesson_full (translated + fallback) call _shuffle_options, so practice_session/get_lesson/duel creation/get_duel all inherit the fix transparently as claimed, with no other code changes needed -- confirmed by reading all four call sites (lines 862, 1051, 1134, 1198).",
+    "practice_session and _build_duel_question_set dedupe questions by raw text using `used.add(q['q'])` on the ALREADY-shuffled question dict -- this is fine since dedup is on q['q'] (question text) not options, unaffected by shuffle."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration_35_answer_shuffle.py (new)"
+  ],
+  "success_rate": {"backend": "100% (9/9)"},
+  "seed_data_creation": "None persistent -- used existing demo@tradequest.app account and created/completed duels which are ephemeral test data (duels auto-expire in 7 days, no cleanup needed).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Answer-shuffle fix in loc_lesson_full/_shuffle_options fully verified for lessons/practice/duels across en/de/es. No regressions in complete endpoints. Reusable ground-truth helper (ground_truth_correct_text) added to test_iteration_35_answer_shuffle.py imports LESSON_MAP/LESSON_T directly from curriculum.py for future shuffle-related regression tests -- note it must match on (question text + option set) not question text alone, since curriculum has duplicate question texts across different lessons with different correct answers.",
+  "rca_of_issue": "N/A -- no bug found in the fix under test. One false-positive was found in my OWN first test-script attempt (not the app): the practice-endpoint ground-truth lookup initially matched ground truth by question text alone, and 'What is a share?' appears in 3 different lessons (l8, l10, l22) with different option sets and different correct answers, causing an incorrect mismatch report. Fixed by also requiring the option-set to match before treating a LESSON_MAP entry as the ground truth source; retest passed 9/9."
+}

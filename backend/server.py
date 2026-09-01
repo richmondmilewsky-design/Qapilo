@@ -200,17 +200,32 @@ def loc_lesson_title(lesson_id: str, default: str, lang: str) -> str:
     return t["title"] if t else default
 
 
+def _shuffle_options(q: dict) -> dict:
+    """Return a copy of a question dict with option order randomized and
+    the answer index remapped to match the new order."""
+    order = list(range(len(q["options"])))
+    random.shuffle(order)
+    return {
+        **q,
+        "options": [q["options"][i] for i in order],
+        "answer": order.index(q["answer"]),
+    }
+
+
 def loc_lesson_full(l: dict, lang: str) -> dict:
     """Return localized title, cards and questions. Answer indices come from the
-    English source (l) so translated option order must match."""
+    English source (l) so translated option order must match. Option order is
+    then randomized per-request so the correct answer isn't always at a fixed
+    position."""
     t = LESSON_T.get(lang, {}).get(l["id"])
     if not t:
-        return {"title": l["title"], "cards": l["cards"], "questions": l["questions"]}
+        return {"title": l["title"], "cards": l["cards"],
+                "questions": [_shuffle_options(q) for q in l["questions"]]}
     questions = []
     for i, q in enumerate(l["questions"]):
         tq = t["questions"][i]
-        questions.append({"q": tq["q"], "options": tq["options"],
-                          "answer": q["answer"], "explain": tq["explain"]})
+        questions.append(_shuffle_options({"q": tq["q"], "options": tq["options"],
+                          "answer": q["answer"], "explain": tq["explain"]}))
     return {"title": t["title"], "cards": t["cards"], "questions": questions}
 
 
