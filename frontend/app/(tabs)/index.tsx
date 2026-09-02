@@ -348,7 +348,7 @@ export default function LearnScreen() {
           </Pressable>
         )}
 
-        {user.is_pro && (
+        {(user.pro_source === "subscription" || (user.pro_source as string) === "founder") && (
           <Pressable
             testID="practice-cta"
             onPress={() => {

@@ -110,7 +110,12 @@ class TestPracticeGateNonPremium:
 
 
 class TestPracticeGatePremium:
-    def test_practice_get_200_within_trial(self, api):
+    """Updated for the stricter gate (pro_active/founder only, not trial).
+    A within-trial user must now be BLOCKED (403); only pro_active=true or
+    founder-override users get 200. See test_practice_pro_gating.py for full
+    coverage of the new behavior."""
+
+    def test_practice_get_403_within_trial_only(self, api):
         email = f"TEST_pro_{uuid.uuid4().hex[:8]}@example.com"
         token, uid = signup(api, email)
         headers = {"Authorization": f"Bearer {token}"}
@@ -119,18 +124,20 @@ class TestPracticeGatePremium:
         assert me.status_code == 200
         assert me.json()["user"].get("is_pro") is True, f"expected fresh signup is_pro True (trial), got {me.json()}"
 
+        # NEW behavior: trial alone is no longer sufficient for practice.
+        r = api.get(f"{BASE_URL}/api/practice", headers=headers)
+        assert r.status_code == 403, r.text
+
+    def test_practice_get_200_with_pro_active(self, api):
+        email = f"TEST_pro2_{uuid.uuid4().hex[:8]}@example.com"
+        token, uid = signup(api, email)
+        db.users.update_one({"email": email.lower()}, {"$set": {"pro_active": True}})
+        headers = {"Authorization": f"Bearer {token}"}
+
         r = api.get(f"{BASE_URL}/api/practice", headers=headers)
         assert r.status_code == 200, r.text
         data = r.json()
         assert "questions" in data or "practice_level" in data, data
-
-    def test_practice_complete_200_within_trial(self, api):
-        email = f"TEST_pro2_{uuid.uuid4().hex[:8]}@example.com"
-        token, uid = signup(api, email)
-        headers = {"Authorization": f"Bearer {token}"}
-
-        session = api.get(f"{BASE_URL}/api/practice", headers=headers)
-        assert session.status_code == 200
         body = {"correct": 1, "total": 1, "tier": 1}
-        r = api.post(f"{BASE_URL}/api/practice/complete", headers=headers, json=body)
-        assert r.status_code == 200, r.text
+        r2 = api.post(f"{BASE_URL}/api/practice/complete", headers=headers, json=body)
+        assert r2.status_code == 200, r2.text

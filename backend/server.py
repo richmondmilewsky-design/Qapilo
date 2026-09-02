@@ -1129,7 +1129,7 @@ class PracticeBody(BaseModel):
 async def practice_session(lang: str = "en", user: dict = Depends(get_current_user)):
     """Endless practice: 5 mixed questions drawn from the tiers the learner has
     reached. Difficulty (and XP reward) rises as the user levels up."""
-    if not compute_pro(user)["is_pro"]:
+    if not (user.get("pro_active", False) or user.get("email", "").lower() in FOUNDER_EMAILS):
         raise HTTPException(status_code=403, detail=L("practice_pro"))
     lang = norm_lang(lang)
     completed = set(user.get("completed_lessons", []))
@@ -1196,7 +1196,7 @@ async def practice_session(lang: str = "en", user: dict = Depends(get_current_us
 
 @api.post("/practice/complete")
 async def practice_complete(body: PracticeBody, user: dict = Depends(get_current_user)):
-    if not compute_pro(user)["is_pro"]:
+    if not (user.get("pro_active", False) or user.get("email", "").lower() in FOUNDER_EMAILS):
         raise HTTPException(status_code=403, detail=L("practice_pro"))
     accuracy = body.correct / body.total if body.total else 0
     tier = max(1, min(5, body.tier or 1))

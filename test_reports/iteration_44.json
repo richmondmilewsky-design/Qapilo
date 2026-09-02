@@ -1,0 +1,37 @@
+{
+  "summary": "Tested the stricter Endless Practice pro gate (pro_active/founder-only, not trial). Backend: created test_practice_pro_gating.py (7 tests) covering trial-user 403, pro_active=true 200, founder-override 200, and PRO_UNITS lesson regression (still trial-accessible). Also updated the pre-existing test_iteration_40_practice_pro_gate.py (which tested the OLD trial-allowed behavior) to reflect the new stricter gate - all 8 tests there now pass too. All 15 backend tests pass (100%). Frontend: verified via Playwright that a fresh trial user does NOT see 'Endloses Üben' (practice-cta) on Home but DOES see 'Freund herausfordern' (duel-cta), and direct navigation to /practice shows the proLocked fallback (lock icon, practice.proLocked text, Unlock Premium button -> /paywall). After setting pro_active=true via direct Mongo update on the same account, Home correctly shows practice-cta and /practice loads real questions (no lock). All requested scenarios verified working correctly.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_practice_pro_gating.py",
+    "/app/backend/tests/test_iteration_40_practice_pro_gate.py",
+    "/app/test_reports/pytest/pytest_practice_gating_combined.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py practice_session (line 1132) and practice_complete (line 1199) both correctly check `user.get('pro_active', False) or user.get('email','').lower() in FOUNDER_EMAILS`, exactly as specified - no reliance on compute_pro() for these two endpoints anymore.",
+    "lesson_pro/PRO_UNITS gating at line 982-983 (get_lesson) and curriculum pro_locked logic at line 953 remain fully compute_pro()-based and untouched - confirmed trial users still get 200 on PRO_UNITS lessons and pro_locked=false in curriculum response.",
+    "index.tsx practice-cta visibility condition changed exactly as described to `user.pro_source === 'subscription' || (user.pro_source as string) === 'founder'` - duel-cta condition untouched.",
+    "practice.tsx's proLocked detection relies on substring match `String(e?.message||'').includes('Premium')` on the error message - fragile but pre-existing (not part of this change) and still works since 'practice_pro' localized strings all contain 'Premium'/'Premium-'/'Premium' in en/de/es.",
+    "No other files showed diffs beyond the 2 specified files, matching the agent-to-agent context note."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_practice_pro_gating.py (new)",
+    "/app/backend/tests/test_iteration_40_practice_pro_gate.py (updated TestPracticeGatePremium to reflect new stricter gate; fixed a pre-existing lowercase-email bug in the test itself)",
+    "/app/memory/test_credentials.md (documented new gating behavior + test files)"
+  ],
+  "success_rate": {"backend": "100% (15/15)", "frontend": "100% (all requested scenarios verified)"},
+  "seed_data_creation": "Transient TEST_-prefixed / test_trial_pw_-prefixed users created and cleaned up during testing (backend pytest fixtures delete their own users; the one manual Playwright-created account was deleted via direct Mongo after verification).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "The stricter Endless Practice gate (pro_active/founder only) is fully implemented and verified working on both backend and frontend. Regression on PRO_UNITS lesson trial-access confirmed intact. No issues found - feature is ready.",
+  "rca_of_issue": "N/A - no bugs found. (Note: during test authoring I hit a self-inflicted test bug twice - using a mixed-case email string like 'TEST_practice_sub_xxx@gmail.com' to query Mongo, while the backend always lowercases stored emails - fixed by lowering the email before Mongo lookups/updates in both test files.)"
+}
