@@ -46,18 +46,22 @@ def level_for_xp(xp):
 
 
 class TestPlacementQuizGet:
-    def test_en_returns_7_tier_le_2_questions(self, api_client):
+    # NOTE (iteration 42): question count changed 7->6 and an `experience` param was
+    # added (default "some" -> tier ceiling 4). Without an explicit experience=xyz value,
+    # these lang-only calls now use the "some" default (tier<=4), not tier<=2. See
+    # test_iteration_42_placement_quiz_difficulty.py for explicit ceiling coverage.
+    def test_en_returns_6_tier_le_4_questions(self, api_client):
         signup(api_client)
         resp = api_client.get(f"{BASE_URL}/api/auth/placement-quiz?lang=en")
         assert resp.status_code == 200, resp.text
         data = resp.json()
         assert "questions" in data
         qs = data["questions"]
-        assert len(qs) == 7, f"Expected 7 questions, got {len(qs)}"
+        assert len(qs) == 6, f"Expected 6 questions, got {len(qs)}"
         for q in qs:
             for key in ("q", "options", "answer", "explain", "tier"):
                 assert key in q, f"Missing key {key} in question {q}"
-            assert q["tier"] <= 2, f"Found tier > 2: {q}"
+            assert q["tier"] <= 4, f"Found tier > 4: {q}"
             assert isinstance(q["options"], list) and len(q["options"]) >= 2
             assert 0 <= q["answer"] < len(q["options"])
             assert q["options"][q["answer"]]  # answer index maps to non-empty text
@@ -67,18 +71,18 @@ class TestPlacementQuizGet:
         resp = api_client.get(f"{BASE_URL}/api/auth/placement-quiz?lang=de")
         assert resp.status_code == 200
         data = resp.json()
-        assert len(data["questions"]) == 7
+        assert len(data["questions"]) == 6
         for q in data["questions"]:
-            assert q["tier"] <= 2
+            assert q["tier"] <= 4
 
     def test_es_localized(self, api_client):
         signup(api_client)
         resp = api_client.get(f"{BASE_URL}/api/auth/placement-quiz?lang=es")
         assert resp.status_code == 200
         data = resp.json()
-        assert len(data["questions"]) == 7
+        assert len(data["questions"]) == 6
         for q in data["questions"]:
-            assert q["tier"] <= 2
+            assert q["tier"] <= 4
 
     def test_requires_auth(self, api_client):
         resp = api_client.get(f"{BASE_URL}/api/auth/placement-quiz?lang=en")
@@ -123,7 +127,7 @@ class TestPlacementQuizCompletePerfectScore:
         updated = resp.json()["user"]
 
         granted_lessons = updated.get("completed_lessons", [])
-        assert 0 < len(granted_lessons) <= 20, f"Expected 1-20 lessons granted, got {len(granted_lessons)}"
+        assert 0 < len(granted_lessons) <= 150, f"Expected 1-150 lessons granted, got {len(granted_lessons)}"
         assert updated["xp"] > 0
 
         final_level = level_for_xp(updated["xp"])
@@ -152,19 +156,19 @@ class TestPlacementQuizCompletePartialScore:
         assert expected_target == 6, f"sanity check on expected math failed: {expected_target}"
 
         granted_lessons = updated.get("completed_lessons", [])
-        # NOTE: the 20-lesson hard safety cap combined with low early-lesson XP means
-        # mid/high target scores (target_level > ~3) always hit the 20-lesson cap
+        # NOTE: the 150-lesson hard safety cap combined with low early-lesson XP means
+        # mid/high target scores (target_level > ~3) always hit the 150-lesson cap
         # before reaching their target level. This is an accepted business tradeoff
         # (per product owner), not a bug -- do not re-flag. Assert cap behavior instead.
-        assert len(granted_lessons) <= 20, "Hard safety cap of 20 lessons must never be exceeded"
+        assert len(granted_lessons) <= 150, "Hard safety cap of 150 lessons must never be exceeded"
         final_level = level_for_xp(updated["xp"])
         assert final_level <= 10
 
         pqr = updated["placement_quiz_result"]
         assert pqr["granted_level"] == final_level
         # loop stops once level >= target level (6), so final level should be >= target
-        # UNLESS the 20-lesson hard cap fires first (known/accepted tradeoff)
-        assert final_level >= expected_target or len(granted_lessons) >= 20
+        # UNLESS the 150-lesson hard cap fires first (known/accepted tradeoff)
+        assert final_level >= expected_target or len(granted_lessons) >= 150
 
         assert updated.get("badges", []) == []
         assert updated.get("streak", 0) == 0

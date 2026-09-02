@@ -732,14 +732,19 @@ class PlacementQuizCompleteBody(BaseModel):
     total: int
 
 
+TIER_CEILING_BY_EXPERIENCE = {"some": 4, "advanced": 5}
+
+
 @api.get("/auth/placement-quiz")
-async def placement_quiz(lang: str = "en", user: dict = Depends(get_current_user)):
-    """Short beginner-tier (tier <= 2) placement quiz shown to users who picked
-    'some experience' / 'advanced' during onboarding. Purely diagnostic — the
-    resulting score is used by /auth/placement-quiz/complete to silently skip
-    ahead through the very first lessons (capped)."""
+async def placement_quiz(lang: str = "en", experience: str = "some", user: dict = Depends(get_current_user)):
+    """Placement quiz shown to users who picked 'some experience' / 'advanced'
+    during onboarding. Question difficulty scales with the chosen experience
+    level (tier ceiling). Purely diagnostic — the resulting score is used by
+    /auth/placement-quiz/complete to silently skip ahead through the very
+    first lessons (capped)."""
     lang = norm_lang(lang)
-    pool = [lid for lid, l in LESSON_MAP.items() if l["tier"] <= 2] or list(LESSON_MAP.keys())
+    tier_ceiling = TIER_CEILING_BY_EXPERIENCE.get(experience, 2)
+    pool = [lid for lid, l in LESSON_MAP.items() if l["tier"] <= tier_ceiling] or list(LESSON_MAP.keys())
     random.shuffle(pool)
     questions, used = [], set()
     for lid in pool:
@@ -753,7 +758,7 @@ async def placement_quiz(lang: str = "en", user: dict = Depends(get_current_user
         used.add(q["q"])
         questions.append({"q": q["q"], "options": q["options"], "answer": q["answer"],
                           "explain": q["explain"], "tier": l["tier"]})
-        if len(questions) >= 7:
+        if len(questions) >= 6:
             break
     return {"questions": questions}
 

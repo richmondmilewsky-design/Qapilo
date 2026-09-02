@@ -34,7 +34,7 @@ export default function Experience() {
       if (selected === "beginner") {
         router.replace("/(tabs)");
       } else {
-        router.replace("/placement-quiz");
+        router.replace(`/placement-quiz?experience=${selected}`);
       }
     } catch {
       setBusy(false);

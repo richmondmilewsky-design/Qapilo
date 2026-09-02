@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -16,6 +16,7 @@ type CompleteResponse = { user: User };
 
 export default function PlacementQuizScreen() {
   const router = useRouter();
+  const { experience } = useLocalSearchParams<{ experience?: string }>();
   const insets = useSafeAreaInsets();
   const { setUser } = useAuth();
   const { t, locale } = useI18n();
@@ -38,7 +39,10 @@ export default function PlacementQuizScreen() {
     setCorrect(0);
     setDone(false);
     try {
-      const data = await apiRequest<QuizResponse>("/auth/placement-quiz");
+      const path = experience
+        ? `/auth/placement-quiz?experience=${experience}`
+        : "/auth/placement-quiz";
+      const data = await apiRequest<QuizResponse>(path);
       setQuestions(data.questions || []);
     } catch {
       setLoadError(true);
@@ -47,6 +51,7 @@ export default function PlacementQuizScreen() {
 
   useEffect(() => {
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locale]);
 
   const continueToApp = () => {
