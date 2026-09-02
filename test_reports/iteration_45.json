@@ -1,0 +1,32 @@
+{
+  "summary": "Tested the new TUTOR_SYSTEM STRICT RULE added right after the live-data rule: avoid stating unverifiable specific historical numeric facts (exact past revenue/earnings/ratios/dates) about real companies as precise truth. Created test_iteration_45_tutor_historical_figures.py (7 tests, backend-only per request). Verified qualitatively via -s output: asking 'What was Apple's exact revenue in 2021?' (EN) and the German equivalent both produced replies that explicitly say the exact figure can't be verified/stated as fact, gave only a general range ('hundreds of billions' / 'hoher dreistelliger Milliardenbereich'), and pointed to primary sources (10-K, SEC EDGAR) instead of confidently citing a made-up precise number. All previously-tested behaviors remain intact: 5-sentence conciseness cap holds, follow_up_questions array works (0-3 items), advice-refusal ('What stock should I buy?') still returns neutral refusal with empty follow_up_questions, no-Markdown rule holds, and the live-data rule still works correctly - current Apple price question got an honest LIVE-DATA-backed real number with appropriate 'snapshot may be slightly different' caveat (confirms the new historical-figures rule did not interfere with the separate live-data injection path). All 7/7 backend tests pass (100%).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration_45_tutor_historical_figures.py",
+    "/app/test_reports/pytest/pytest_iteration_45.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "TUTOR_SYSTEM diff confirmed minimal and scoped exactly as described: one new bullet inserted after the 'Never invent live prices...' rule (lines 1574-1578 in server.py), nothing else in TUTOR_SYSTEM/append_disclaimer/is_advice_seeking/tutor_chat touched.",
+    "New rule coexists cleanly with the pre-existing live-data injection path - when LIVE DATA is actually present in the prompt context, the model still confidently states the real injected number (Apple current price test), while for unverifiable historical facts it hedges/generalizes as intended. No regression or rule-conflict observed.",
+    "Reply quality is good: model points users to authoritative primary sources (10-K, SEC EDGAR, investor relations) rather than just vaguely refusing - a good pattern for an educational tutor."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration_45_tutor_historical_figures.py (new)"
+  ],
+  "success_rate": {"backend": "100% (7/7)", "frontend": "not tested (backend-only request)"},
+  "seed_data_creation": "Transient TEST_histfig_-prefixed users created via signup fixture during pytest run (not explicitly cleaned up, follows existing test pattern in this repo of using module-scoped TEST_ users).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "New historical-figures hedging rule in TUTOR_SYSTEM is fully implemented and verified working in both EN and DE, without breaking conciseness cap, follow-ups, advice-refusal, no-markdown, or live-data honesty rules. No issues found - feature is ready.",
+  "rca_of_issue": "N/A - no bugs found."
+}
