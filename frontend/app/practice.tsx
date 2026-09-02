@@ -27,6 +27,7 @@ export default function PracticeScreen() {
   const [correct, setCorrect] = useState(0);
   const [result, setResult] = useState<Result | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [proLocked, setProLocked] = useState(false);
 
   const loadSession = async () => {
     setSession(null);
@@ -35,11 +36,16 @@ export default function PracticeScreen() {
     setChecked(false);
     setCorrect(0);
     setResult(null);
+    setProLocked(false);
     try {
       const data = await apiRequest<Session>("/practice");
       setSession(data);
-    } catch {
-      router.back();
+    } catch (e: any) {
+      if (String(e?.message || "").includes("Premium")) {
+        setProLocked(true);
+      } else {
+        router.back();
+      }
     }
   };
 
@@ -47,6 +53,29 @@ export default function PracticeScreen() {
     loadSession();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locale]);
+
+  if (proLocked) {
+    return (
+      <View
+        style={[
+          styles.root,
+          { alignItems: "center", paddingTop: insets.top + spacing.xxxl, paddingHorizontal: spacing.xl },
+        ]}
+      >
+        <MaterialCommunityIcons name="lock-outline" size={64} color={colors.amber} />
+        <Text style={styles.proLockedTitle}>{t("practice.proLocked")}</Text>
+        <PrimaryButton
+          testID="practice-unlock-pro"
+          label={t("pw.ctaUnlock")}
+          onPress={() => router.replace("/paywall")}
+          style={{ marginTop: spacing.xl, alignSelf: "stretch" }}
+        />
+        <Pressable testID="practice-back" onPress={() => router.back()} style={styles.backLink}>
+          <Text style={styles.backLinkText}>{t("practice.back")}</Text>
+        </Pressable>
+      </View>
+    );
+  }
 
   if (!session) return <Loading testID="practice-loading" />;
 
@@ -72,7 +101,9 @@ export default function PracticeScreen() {
       setUser(res.user);
       setResult(res);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch {} finally {
+    } catch (e: any) {
+      if (String(e?.message || "").includes("Premium")) setProLocked(true);
+    } finally {
       setSubmitting(false);
     }
   };
@@ -223,4 +254,5 @@ const styles = StyleSheet.create({
   backLink: { alignItems: "center", paddingVertical: spacing.md, marginTop: spacing.xs },
   backLinkText: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.muted },
   emptyText: { fontFamily: fonts.body, fontSize: 15, color: colors.muted },
+  proLockedTitle: { fontFamily: fonts.display, fontSize: 22, color: colors.onSurface, marginTop: spacing.lg, textAlign: "center" },
 });

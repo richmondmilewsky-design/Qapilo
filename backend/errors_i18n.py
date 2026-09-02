@@ -113,6 +113,11 @@ ERRORS = {
         "de": "Diese Lektion erfordert Qapilo Pro",
         "es": "Esta lección requiere Qapilo Pro",
     },
+    "practice_pro": {
+        "en": "Endless Practice is a Premium feature.",
+        "de": "Endloses Üben ist eine Premium-Funktion.",
+        "es": "La práctica ilimitada es una función Premium.",
+    },
     "stock_not_found": {
         "en": "Stock not found",
         "de": "Aktie nicht gefunden",

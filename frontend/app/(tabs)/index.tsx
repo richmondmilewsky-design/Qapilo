@@ -315,8 +315,8 @@ export default function LearnScreen() {
             onPress={() => { setVerifyErr(""); setVerifyMsg(""); setVerifyOpen(true); }}
             style={styles.verifyBanner}
           >
-            <Ionicons name="mail-unread-outline" size={22} color={colors.amber} />
-            <Text style={styles.verifyBannerText}>{t("verify.banner")}</Text>
+            <Ionicons name="mail-unread-outline" size={14} color={colors.amber} />
+            <Text style={styles.verifyBannerText} numberOfLines={1}>{t("verify.banner")}</Text>
             <Text style={styles.verifyBannerCta}>{t("verify.bannerCta")}</Text>
           </Pressable>
         )}
@@ -348,23 +348,25 @@ export default function LearnScreen() {
           </Pressable>
         )}
 
-        <Pressable
-          testID="practice-cta"
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            router.push("/practice");
-          }}
-          style={styles.practiceCta}
-        >
-          <View style={styles.practiceIcon}>
-            <MaterialCommunityIcons name="dumbbell" size={24} color={colors.onBrand} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.practiceTitle}>{t("learn.practiceTitle")}</Text>
-            <Text style={styles.practiceSub}>{t("learn.practiceSub")}</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={22} color={colors.muted} />
-        </Pressable>
+        {user.is_pro && (
+          <Pressable
+            testID="practice-cta"
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              router.push("/practice");
+            }}
+            style={styles.practiceCta}
+          >
+            <View style={styles.practiceIcon}>
+              <MaterialCommunityIcons name="dumbbell" size={24} color={colors.onBrand} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.practiceTitle}>{t("learn.practiceTitle")}</Text>
+              <Text style={styles.practiceSub}>{t("learn.practiceSub")}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={22} color={colors.muted} />
+          </Pressable>
+        )}
 
         <Pressable
           testID="duel-cta"
@@ -744,18 +746,13 @@ const styles = StyleSheet.create({
   verifyBanner: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.md,
+    gap: spacing.xs,
     marginHorizontal: spacing.lg,
-    marginBottom: spacing.lg,
-    backgroundColor: "#1A1405",
-    borderWidth: 1,
-    borderColor: colors.amber,
-    borderRadius: radius.lg,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
+    marginBottom: spacing.md,
+    paddingVertical: 6,
   },
-  verifyBannerText: { flex: 1, fontFamily: fonts.bodyMed, fontSize: 13, color: colors.onSurface },
-  verifyBannerCta: { fontFamily: fonts.bodySemi, fontSize: 13, color: colors.amber },
+  verifyBannerText: { flex: 1, fontFamily: fonts.body, fontSize: 12, color: colors.muted },
+  verifyBannerCta: { fontFamily: fonts.bodySemi, fontSize: 12, color: colors.amber },
   celeOverlay: {
     position: "absolute",
     top: 0, left: 0, right: 0, bottom: 0,
