@@ -21,7 +21,7 @@ const PRIVACY: Record<Lang, Policy> = {
       },
       {
         heading: "Third-Party Services",
-        body: "To run the app we share the minimum necessary data with: PayPal (payment processing), Finnhub (live market data), Anthropic (AI Tutor responses), Tavily (news, only if enabled), and Google (only if you choose Google sign-in). Each processes data under its own privacy policy.",
+        body: "To run the app we share the minimum necessary data with: Emergent (our application hosting/infrastructure provider, which also proxies AI Tutor messages to Anthropic's Claude model, sends transactional emails on our behalf, and handles parts of the Google sign-in session flow), PayPal (payment processing), Finnhub (live market data), Anthropic (AI Tutor responses), Tavily (news, only if enabled), and Google (only if you choose Google sign-in). Each processes data under its own privacy policy and, where required, a data processing agreement.",
       },
       {
         heading: "Data Retention",
@@ -60,7 +60,7 @@ const PRIVACY: Record<Lang, Policy> = {
       },
       {
         heading: "Drittanbieter",
-        body: "Zum Betrieb der App geben wir die minimal notwendigen Daten weiter an: PayPal (Zahlungsabwicklung), Finnhub (Live-Marktdaten), Anthropic (KI-Tutor-Antworten), Tavily (Nachrichten, nur falls aktiviert) und Google (nur bei Google-Anmeldung). Jeder verarbeitet Daten nach seiner eigenen Datenschutzrichtlinie.",
+        body: "Zum Betrieb der App geben wir die minimal notwendigen Daten weiter an: Emergent (unser Hosting-/Infrastrukturanbieter, der außerdem KI-Tutor-Nachrichten an Anthropics Claude-Modell weiterleitet, transaktionale E-Mails in unserem Auftrag versendet und Teile des Google-Anmeldeprozesses abwickelt), PayPal (Zahlungsabwicklung), Finnhub (Live-Marktdaten), Anthropic (KI-Tutor-Antworten), Tavily (Nachrichten, nur falls aktiviert) und Google (nur bei Google-Anmeldung). Jeder verarbeitet Daten nach seiner eigenen Datenschutzrichtlinie und, soweit erforderlich, einem Auftragsverarbeitungsvertrag.",
       },
       {
         heading: "Speicherdauer",
@@ -99,7 +99,7 @@ const PRIVACY: Record<Lang, Policy> = {
       },
       {
         heading: "Servicios de terceros",
-        body: "Para operar la app compartimos los datos mínimos necesarios con: PayPal (pagos), Finnhub (datos de mercado en vivo), Anthropic (respuestas del Tutor IA), Tavily (noticias, solo si está activado) y Google (solo si eliges iniciar sesión con Google). Cada uno trata los datos según su propia política de privacidad.",
+        body: "Para operar la app compartimos los datos mínimos necesarios con: Emergent (nuestro proveedor de alojamiento/infraestructura, que también reenvía los mensajes del Tutor de IA al modelo Claude de Anthropic, envía correos transaccionales en nuestro nombre y gestiona parte del proceso de inicio de sesión con Google), PayPal (procesamiento de pagos), Finnhub (datos de mercado en vivo), Anthropic (respuestas del Tutor de IA), Tavily (noticias, solo si está activado) y Google (solo si eliges iniciar sesión con Google). Cada uno procesa los datos según su propia política de privacidad y, cuando sea necesario, un acuerdo de procesamiento de datos.",
       },
       {
         heading: "Conservación de datos",
