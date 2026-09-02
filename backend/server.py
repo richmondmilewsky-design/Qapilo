@@ -13,6 +13,7 @@ from typing import Optional, List
 
 import jwt
 import httpx
+import dns.resolver
 from fastapi import FastAPI, APIRouter, Depends, HTTPException, Request
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -494,8 +495,31 @@ async def _shutdown():
 
 
 # ----------------------------- Auth -----------------------------
+def _has_valid_mail_domain(email: str) -> bool:
+    """Return False only when the domain clearly cannot receive mail
+    (NXDOMAIN / no MX or A record). On timeouts or other transient DNS
+    errors, fail OPEN (return True) so real users are never blocked by
+    a temporary DNS hiccup."""
+    try:
+        domain = email.rsplit("@", 1)[-1]
+        try:
+            dns.resolver.resolve(domain, "MX", lifetime=3.0)
+            return True
+        except dns.resolver.NoAnswer:
+            # No MX record — some domains still accept mail via an A record.
+            dns.resolver.resolve(domain, "A", lifetime=3.0)
+            return True
+    except dns.resolver.NXDOMAIN:
+        return False
+    except Exception:
+        # Any other DNS/timeout error: don't block a real user over it.
+        return True
+
+
 @api.post("/auth/signup")
 async def signup(body: SignupBody):
+    if not _has_valid_mail_domain(body.email):
+        raise HTTPException(status_code=400, detail=L("email_domain_invalid"))
     existing = await db.users.find_one({"email": body.email.lower()})
     if existing:
         raise HTTPException(status_code=400, detail=L("email_taken"))

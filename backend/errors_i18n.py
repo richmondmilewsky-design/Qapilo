@@ -43,6 +43,11 @@ ERRORS = {
         "de": "E-Mail ist bereits registriert",
         "es": "El correo ya está registrado",
     },
+    "email_domain_invalid": {
+        "en": "This email address doesn't seem to exist — please check for typos.",
+        "de": "Diese E-Mail-Adresse scheint nicht zu existieren — bitte auf Tippfehler prüfen.",
+        "es": "Esta dirección de correo no parece existir — revisa si hay errores de escritura.",
+    },
     "bad_credentials": {
         "en": "Invalid email or password",
         "de": "Ungültige E-Mail oder ungültiges Passwort",
